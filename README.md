@@ -28,6 +28,159 @@
 ```
 # 
 ```
+Lakukan **Final Integration Audit dan Real API Testing** pada project `nvidia-api` setelah Prompt 1, 2, dan 3 selesai.
+
+TUJUAN:
+Memastikan Provider Management, Enable/Disable Provider, Usage Tracking, Usage Dashboard, dan Logs benar-benar terintegrasi dan bekerja pada request API nyata.
+
+1. AUDIT PROVIDER REGISTRY
+
+* Periksa source code/provider registry yang benar-benar digunakan `nvidia-api`.
+* Tampilkan/identifikasi seluruh provider yang benar-benar terdaftar.
+* Jangan membuat provider atau model dummy.
+* Periksa model yang benar-benar tersedia dari masing-masing provider.
+* Pastikan provider disabled tidak digunakan oleh request baru.
+
+2. AUDIT MODEL REGISTRY
+   Periksa model yang tersedia dan pastikan ID model yang digunakan oleh API benar-benar sesuai dengan registry/provider.
+
+Khusus untuk DeepSeek:
+
+* Cari apakah `DeepSeek-V4-Flash-0371` benar-benar terdaftar.
+* Jika tersedia, gunakan exact model ID yang ditemukan di source/config/provider registry.
+* Jangan mengubah nama model hanya berdasarkan asumsi.
+* Jika model tersebut tidak tersedia, laporkan exact model ID yang tersedia dan jangan membuat model palsu.
+
+3. REAL API SMOKE TEST
+   Lakukan testing menggunakan endpoint API yang benar-benar digunakan project.
+
+Test minimal:
+
+* request menggunakan provider aktif
+* request menggunakan model yang valid
+* request model tidak valid
+* request ketika provider disabled
+* enable kembali provider
+* request setelah provider di-enable
+* request success
+* request upstream error jika dapat direproduksi dengan aman
+* streaming jika endpoint mendukung streaming
+
+4. DEEPSEEK TEST
+   Jika `DeepSeek-V4-Flash-0371` benar-benar tersedia di registry dan konfigurasi:
+
+* lakukan minimal satu smoke test request dengan model tersebut
+* pastikan response berhasil
+* pastikan provider dan model pada Usage Log sesuai dengan request sebenarnya
+* pastikan input tokens, output tokens, dan total tokens berasal dari usage response provider jika tersedia
+* pastikan latency tercatat
+* pastikan status request tercatat sebagai success
+
+Jika model tidak tersedia:
+
+* jangan mengubah registry untuk memaksakan model tersebut
+* laporkan model ID yang tersedia untuk DeepSeek V4 Flash.
+
+5. PROVIDER DISABLE TEST
+   Pastikan alur berikut bekerja:
+   ACTIVE → request berhasil → DISABLE → request diblokir → ENABLE → request berhasil kembali.
+
+Pastikan:
+
+* blocked request tercatat sebagai `blocked`
+* provider/model tetap dapat diidentifikasi jika tersedia
+* tidak ada request yang lolos ke provider yang sedang disabled
+* status tetap persistent setelah restart.
+
+6. USAGE & LOG CONSISTENCY
+   Bandingkan request nyata dengan log yang dihasilkan.
+
+Pastikan setiap request memiliki data yang konsisten:
+
+* provider
+* model
+* status
+* HTTP status
+* input tokens
+* output tokens
+* total tokens
+* latency
+* error information jika gagal
+* timestamp
+* API key/client identifier yang sudah dimasking
+
+Jangan mengarang atau mengestimasi token.
+
+7. STREAMING
+   Jika API mendukung streaming:
+
+* pastikan streaming tetap berjalan setelah Usage Tracking ditambahkan
+* usage dari streaming response dicatat jika provider mengirimkannya
+* logging tidak menyebabkan stream terputus
+* error streaming tetap tercatat dengan benar.
+
+8. REGRESSION AUDIT
+   Pastikan fitur existing tidak rusak:
+
+* endpoint `/v1/*`
+* model discovery
+* provider discovery
+* request biasa
+* streaming
+* admin provider
+* enable/disable provider
+* usage
+* logs
+
+Jangan melakukan refactor besar.
+
+9. TESTING
+   Tambahkan integration/smoke test yang relevan untuk:
+
+* provider active
+* provider disabled
+* provider re-enabled
+* valid model
+* invalid model
+* usage record
+* provider/model log consistency
+* token usage
+* streaming jika tersedia
+* persistence setelah restart
+
+Jalankan:
+
+* npm run lint
+* npm run build
+* npm test
+
+Untuk `models.test.ts`:
+
+* jangan mengubah test hanya untuk membuatnya lulus.
+* Audit penyebabnya.
+* Jika memang tetap gagal karena environment/gorouter model discovery yang sudah ada sebelum Prompt 1, laporkan sebagai pre-existing failure.
+* Jika audit membuktikan Prompt 1/2/3 menyebabkan failure, baru perbaiki penyebab sebenarnya.
+
+10. HASIL AKHIR
+    Berikan laporan:
+
+* Provider yang benar-benar terdaftar
+* Model yang benar-benar tersedia
+* Exact model ID DeepSeek V4 Flash yang ditemukan
+* Hasil test DeepSeek-V4-Flash-0371 jika tersedia
+* Hasil Enable/Disable Provider
+* Hasil Usage/Logs
+* Hasil streaming
+* File yang berubah
+* Jumlah test pass/fail
+* lint/build result
+* status `models.test.ts`
+* masalah yang masih tersisa
+
+PENTING:
+Jangan membuat data/provider/model palsu hanya agar test lulus.
+Gunakan konfigurasi dan registry nyata dari project `nvidia-api`.
+Jangan membocorkan API key, provider credential, Authorization header, atau secret dalam output/log.
 
 
 
