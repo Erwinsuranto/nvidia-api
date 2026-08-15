@@ -33,9 +33,77 @@
 
 ```
 
-# 
+# Prompt 2 — Usage Tracking.
 ```
 
+Implementasikan fitur **Usage Tracking** pada project `nvidia-api`.
+
+TUJUAN:
+Mencatat dan menyediakan data penggunaan API secara akurat untuk setiap request yang diproses oleh `nvidia-api`, termasuk provider dan model yang digunakan.
+
+FITUR:
+
+1. Catat setiap request API yang berhasil diproses.
+2. Data usage minimal mencakup:
+
+   * timestamp
+   * API key/client identifier jika sistem sudah memilikinya
+   * provider
+   * model
+   * jumlah request
+   * input/prompt tokens jika tersedia
+   * output/completion tokens jika tersedia
+   * total tokens jika tersedia
+   * latency jika informasi tersebut sudah tersedia di sistem
+   * status request (success/error)
+3. Usage harus bisa dibedakan berdasarkan:
+
+   * provider
+   * model
+   * API key/client
+4. Jika provider di-disable, request yang ditolak tetap boleh dicatat sebagai error/blocked jika arsitektur existing mendukungnya, tetapi jangan mengubah perilaku disable provider yang sudah dibuat pada Prompt 1.
+5. Jangan mengarang jumlah token. Jika provider/API tidak mengembalikan token usage, simpan sebagai null/0 sesuai pola data yang sudah digunakan project.
+6. Gunakan struktur database/storage yang sudah ada. Jangan membuat database baru atau sistem storage duplikatif.
+7. Pastikan pencatatan usage tidak menyebabkan request utama gagal hanya karena proses logging usage mengalami error.
+8. Jangan mengubah endpoint API existing kecuali memang diperlukan untuk mengambil data usage.
+9. Siapkan service/repository usage yang nantinya mudah digunakan oleh dashboard pada tahap berikutnya.
+10. Tambahkan endpoint internal/admin untuk mengambil data usage jika pola API project memang menggunakan endpoint admin. Minimal sediakan data agregat:
+
+    * total requests
+    * total successful requests
+    * total failed requests
+    * total tokens jika tersedia
+    * usage per provider
+    * usage per model
+
+TESTING:
+
+* Tambahkan unit/integration test untuk usage tracking.
+* Test request berhasil menghasilkan record usage.
+* Test request gagal tidak menghasilkan data success yang salah.
+* Test provider/model tercatat sesuai request sebenarnya.
+* Test token usage menggunakan nilai asli dari response jika tersedia.
+* Test logging usage tidak membuat request utama gagal.
+* Jalankan lint/typecheck/build/test yang tersedia.
+
+PENTING:
+
+* Jangan menghapus atau merusak fitur existing.
+* Jangan mengubah Provider Management dan Enable/Disable yang sudah dibuat pada Prompt 1 kecuali diperlukan untuk integrasi usage.
+* Jangan mengerjakan UI/dashboard analytics terlebih dahulu.
+* Jangan membuat mock provider.
+* Jangan mengarang data usage.
+* Jangan melakukan refactor besar yang tidak diperlukan.
+* Pertahankan kompatibilitas dengan endpoint API yang sudah ada.
+
+Setelah selesai, berikan ringkasan:
+
+* File yang diubah
+* Struktur data usage yang dibuat
+* Endpoint/service usage yang tersedia
+* Test yang ditambahkan
+* Hasil build/test
+* Error atau masalah yang masih ada
 
 
 ```
