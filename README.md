@@ -22,7 +22,1018 @@
 
 # 
 ```
+Lanjutkan project `nvidia-api`.
 
+PROMPT 12 — FULL ADMIN DASHBOARD INTEGRATION
+
+Tujuan utama tahap ini adalah menyelesaikan Admin Dashboard agar seluruh fitur Provider Management, Usage Tracking, Model Registry, Usage Logs, dan statistik token dapat digunakan melalui UI admin dengan data REAL dari backend.
+
+JANGAN membuat data dummy.
+JANGAN membuat provider/model dummy.
+JANGAN menggunakan Gorouter.app.
+JANGAN melakukan live test Gorouter.
+NVIDIA dan TokenHarbor.ai tetap dipertahankan sebagai provider yang harus didukung.
+Gunakan endpoint/backend existing sebisa mungkin.
+
+==================================================
+1. AUDIT STRUKTUR PROJECT SEBELUM MENGUBAH FILE
+==================================================
+
+Sebelum coding:
+
+- audit struktur frontend/admin yang sudah ada
+- cari routing admin
+- cari layout/sidebar/navigation admin
+- cari komponen table/card/badge/button existing
+- cari API client/service existing
+- cari endpoint `/admin/providers`
+- cari endpoint `/admin/usage`
+- cari endpoint `/admin/usage/providers`
+- cari endpoint `/admin/usage/models`
+- cari endpoint `/admin/usage/records`
+- cari endpoint `/admin/logs`
+- cari endpoint model registry
+- cari komponen UI yang sudah digunakan project
+
+Jangan membuat sistem frontend kedua.
+
+Gunakan arsitektur dan style existing.
+
+Jangan melakukan refactor besar hanya untuk membuat dashboard.
+
+==================================================
+2. ADMIN PROVIDER MANAGEMENT
+==================================================
+
+Buat/rapikan halaman Provider Management.
+
+Data harus berasal dari:
+
+GET `/admin/providers`
+
+Tampilkan semua provider yang benar-benar terdaftar.
+
+Untuk setiap provider tampilkan:
+
+- Provider Name
+- Provider ID
+- Status
+- jumlah model
+- model yang tersedia
+- enabled/disabled state
+
+Status harus jelas:
+
+ENABLED
+DISABLED
+
+Gunakan badge/status indicator yang konsisten dengan UI existing.
+
+==================================================
+3. TOMBOL ENABLE / DISABLE PROVIDER
+==================================================
+
+Tambahkan tombol:
+
+Enable Provider
+Disable Provider
+
+Gunakan endpoint existing:
+
+PATCH `/admin/providers/:providerId`
+
+dengan:
+
+{
+  "enabled": true
+}
+
+atau:
+
+{
+  "enabled": false
+}
+
+Jangan membuat endpoint baru jika endpoint existing sudah bekerja.
+
+Behavior:
+
+Disable:
+- provider menjadi disabled
+- provider tidak menerima request baru
+- model/provider tetap dikenal oleh registry/admin
+- data Usage/Logs lama tidak dihapus
+- status persistent
+- setelah reload halaman status tetap disabled
+
+Enable:
+- provider kembali aktif
+- status UI diperbarui
+- provider dapat digunakan kembali
+- data lama tetap ada
+
+Setelah action berhasil:
+- refresh data provider
+- jangan hanya mengubah state frontend secara lokal jika backend belum berhasil.
+
+Jika backend mengembalikan error:
+- tampilkan error
+- jangan menampilkan provider sebagai enabled/disabled secara palsu.
+
+==================================================
+4. PROVIDER DETAIL
+==================================================
+
+Jika UI existing memungkinkan, buat detail/expand provider.
+
+Tampilkan:
+
+Provider:
+- name
+- id
+- status
+
+Models:
+- model ID
+- model status jika tersedia
+
+Contoh model NVIDIA/TokenHarbor harus berasal dari backend.
+
+Jangan hardcode:
+
+- NVIDIA models
+- TokenHarbor models
+- DeepSeek models
+- GLM models
+
+Semua harus berasal dari registry/discovery/backend.
+
+==================================================
+5. USAGE DASHBOARD
+==================================================
+
+Gunakan:
+
+GET `/admin/usage`
+
+Tampilkan summary cards:
+
+- Total Requests
+- Successful Requests
+- Error Requests
+- Blocked Requests
+- Prompt/Input Tokens
+- Completion/Output Tokens
+- Total Tokens
+- Average Latency
+
+Jika backend memberikan nilai null:
+- jangan mengarang angka
+- tampilkan `—` atau `N/A`.
+
+Total token harus berasal dari usage data.
+
+Jangan melakukan token estimation di frontend.
+
+==================================================
+6. TOKEN DISPLAY
+==================================================
+
+Pastikan UI membedakan:
+
+Prompt/Input Tokens
+Completion/Output Tokens
+Total Tokens
+
+Contoh:
+
+Prompt:
+10
+
+Completion:
+6
+
+Total:
+16
+
+Jika backend mengatakan:
+
+prompt = 10
+completion = 6
+total = 16
+
+UI harus menampilkan nilai tersebut secara langsung.
+
+Jangan menghitung ulang token di frontend jika backend sudah memberikan `total_tokens`.
+
+Jika upstream tidak memberikan usage:
+
+Prompt: —
+Completion: —
+Total: —
+
+Jangan mengubah null menjadi angka palsu.
+
+==================================================
+7. USAGE PER PROVIDER
+==================================================
+
+Gunakan:
+
+GET `/admin/usage/providers`
+
+Buat tabel/provider breakdown.
+
+Kolom:
+
+- Provider
+- Requests
+- Success
+- Error
+- Blocked
+- Prompt Tokens
+- Completion Tokens
+- Total Tokens
+- Average Latency
+
+Pastikan provider berasal dari usage record yang sebenarnya.
+
+Contoh:
+
+NVIDIA
+TokenHarbor
+
+Jangan menambahkan provider yang tidak dikembalikan backend.
+
+==================================================
+8. USAGE PER MODEL
+==================================================
+
+Gunakan:
+
+GET `/admin/usage/models`
+
+Tampilkan:
+
+- Model
+- Provider
+- Requests
+- Success
+- Error
+- Blocked
+- Prompt Tokens
+- Completion Tokens
+- Total Tokens
+- Average Latency jika tersedia
+
+Model harus exact model ID dari backend.
+
+Jangan memotong atau mengganti nama model sehingga ID aslinya hilang.
+
+Model seperti:
+
+`deepseek-ai/deepseek-v4-flash-0731`
+
+harus tetap dapat dilihat sebagai exact ID.
+
+==================================================
+9. USAGE LOGS
+==================================================
+
+Gunakan:
+
+GET `/admin/usage/records`
+
+atau endpoint `/admin/logs` jika itu merupakan endpoint existing untuk data yang sama.
+
+Buat halaman Logs yang rapi.
+
+Kolom minimal:
+
+- Timestamp
+- Provider
+- Model
+- Status
+- HTTP Status
+- Prompt Tokens
+- Completion Tokens
+- Total Tokens
+- Latency
+- Error Message
+
+Jika tersedia:
+
+- Request ID
+- Client/API identifier
+- API key masked
+
+Jangan tampilkan raw API key.
+
+==================================================
+10. STATUS LOG
+==================================================
+
+Gunakan status backend yang sebenarnya.
+
+Minimal bedakan:
+
+SUCCESS
+ERROR
+BLOCKED
+
+Contoh:
+
+SUCCESS
+HTTP 200
+
+ERROR
+HTTP 401/403/429/500/etc sesuai upstream
+
+BLOCKED
+request tidak diteruskan karena provider/model disabled/invalid sesuai behavior backend.
+
+Jangan mengubah status hanya berdasarkan warna UI.
+
+==================================================
+11. HTTP STATUS
+==================================================
+
+Tampilkan HTTP status asli dari backend.
+
+Contoh:
+
+200
+400
+401
+403
+429
+500
+
+Jika `httpStatus = null`:
+
+tampilkan `—`.
+
+Jangan menganggap null sebagai 200.
+
+Jangan mengarang HTTP status.
+
+==================================================
+12. LOG DETAIL
+==================================================
+
+Jika endpoint:
+
+GET `/admin/usage/records/:index`
+
+tersedia, gunakan endpoint tersebut untuk detail.
+
+Buat detail view/modal/page sesuai pola UI existing.
+
+Tampilkan:
+
+- timestamp
+- provider
+- model
+- status
+- HTTP status
+- latency
+- prompt tokens
+- completion tokens
+- total tokens
+- error message
+- request ID jika tersedia
+- masked client/API key jika tersedia
+
+Credential rahasia tidak boleh ditampilkan.
+
+==================================================
+13. FILTER LOG
+==================================================
+
+Tambahkan filter menggunakan parameter yang sudah didukung backend.
+
+Minimal:
+
+Provider
+Model
+Status
+Time range
+Search
+
+Jika backend mendukung:
+
+request ID / trace ID
+
+Gunakan query parameter backend existing.
+
+Jangan membuat filtering palsu yang hanya bekerja di frontend jika dataset sudah dipagination backend.
+
+==================================================
+14. PAGINATION
+==================================================
+
+Gunakan:
+
+limit
+offset
+
+sesuai endpoint existing.
+
+Jangan mengambil seluruh Usage Logs jika jumlah record besar.
+
+UI harus memiliki:
+
+Previous
+Next
+
+atau pagination yang sesuai desain existing.
+
+Tampilkan jumlah record jika backend menyediakan total.
+
+Jika backend belum memberikan total:
+- jangan membuat total palsu.
+
+==================================================
+15. SEARCH
+==================================================
+
+Jika endpoint `/admin/usage/records` mendukung search:
+
+gunakan search backend.
+
+Search dapat digunakan untuk:
+
+- request ID
+- trace ID
+- model
+- provider
+
+sesuai parameter yang benar-benar didukung backend.
+
+Jangan membuat query parameter baru jika backend belum mendukungnya tanpa alasan.
+
+==================================================
+16. PROVIDER FILTER
+==================================================
+
+Provider filter harus mengambil daftar provider dari provider registry/backend.
+
+Jangan hardcode:
+
+NVIDIA
+TokenHarbor
+dan provider lainnya.
+
+Jika provider baru ditambahkan nanti, filter harus dapat mengenalinya otomatis.
+
+==================================================
+17. MODEL FILTER
+==================================================
+
+Model filter harus menggunakan model yang tersedia dari backend.
+
+Jika memungkinkan, ketika provider dipilih:
+
+Provider = NVIDIA
+
+maka pilihan model hanya menampilkan model NVIDIA.
+
+Jika Provider = TokenHarbor
+
+maka model TokenHarbor ditampilkan.
+
+Jangan membuat daftar model manual.
+
+==================================================
+18. DASHBOARD REFRESH
+==================================================
+
+Tambahkan refresh mechanism yang aman.
+
+Minimal:
+- tombol Refresh
+- data provider refresh
+- usage summary refresh
+- provider breakdown refresh
+- model breakdown refresh
+- logs refresh
+
+Jangan melakukan polling agresif.
+
+Jangan membuat request berulang tanpa kontrol.
+
+==================================================
+19. LOADING STATE
+==================================================
+
+Setiap bagian dashboard harus memiliki loading state.
+
+Contoh:
+
+Loading providers...
+Loading usage...
+Loading logs...
+
+Jangan menampilkan data kosong seolah-olah memang tidak ada data saat request masih berjalan.
+
+==================================================
+20. ERROR STATE
+==================================================
+
+Jika API gagal:
+
+Tampilkan pesan yang jelas.
+
+Contoh:
+
+Failed to load providers
+Failed to load usage
+Failed to load logs
+
+Jangan:
+- membuat dummy data
+- mengisi angka 0 palsu
+- menganggap request berhasil.
+
+Jika satu endpoint gagal:
+- jangan sampai seluruh halaman crash.
+
+==================================================
+21. EMPTY STATE
+==================================================
+
+Jika benar-benar tidak ada data:
+
+Providers:
+No providers registered.
+
+Usage:
+No usage data available.
+
+Logs:
+No usage records found.
+
+Jangan menyamakan loading dengan empty state.
+
+==================================================
+22. RESPONSIVE MOBILE UI
+==================================================
+
+Project akan digunakan dari HP.
+
+Pastikan dashboard tetap nyaman pada layar kecil.
+
+Untuk tabel yang lebar:
+- gunakan horizontal scrolling
+- atau responsive card layout
+- jangan membuat teks terpotong tanpa cara melihat detail.
+
+Provider card harus tetap mudah digunakan di HP.
+
+Tombol Enable/Disable harus mudah ditekan.
+
+==================================================
+23. DESAIN
+==================================================
+
+Gunakan design system existing.
+
+Jangan mengganti seluruh UI project.
+
+Pertahankan:
+- warna
+- typography
+- spacing
+- button style
+- card style
+- navigation
+- layout
+
+Jika project belum memiliki komponen tertentu:
+buat komponen kecil yang reusable.
+
+Contoh:
+
+ProviderCard
+UsageSummary
+UsageProviderTable
+UsageModelTable
+UsageLogsTable
+UsageLogDetail
+
+Hindari satu file frontend yang terlalu besar.
+
+==================================================
+24. FRONTEND API CLIENT
+==================================================
+
+Cari API client/service existing.
+
+Gunakan client tersebut.
+
+Jangan membuat fetch/axios client kedua jika project sudah memiliki API abstraction.
+
+Pastikan:
+- authentication admin tetap digunakan
+- error handling konsisten
+- base URL existing digunakan.
+
+==================================================
+25. BACKEND COMPATIBILITY
+==================================================
+
+Jangan mengubah backend hanya karena frontend membutuhkan nama field berbeda.
+
+Sesuaikan frontend dengan response backend existing.
+
+Jika ada mismatch field:
+- audit response sebenarnya
+- gunakan mapping kecil di service layer
+- jangan mengubah API contract tanpa alasan.
+
+==================================================
+26. PROVIDER DISABLE + USAGE REGRESSION
+==================================================
+
+Pastikan UI tidak menghapus Usage History saat provider di-disable.
+
+Contoh:
+
+NVIDIA:
+100 request
+→ Disable NVIDIA
+
+Usage:
+tetap 100 request.
+
+Kemudian:
+Enable NVIDIA
+→ request baru
+
+Usage:
+101 request.
+
+Provider disable hanya menghentikan request baru.
+
+==================================================
+27. MODEL REGISTRY REGRESSION
+==================================================
+
+Pastikan dashboard tidak mengubah registry model.
+
+Tetap pertahankan:
+
+- live discovery
+- provider registry
+- model registry
+- `/v1/models`
+
+Provider disabled tetap dapat dikenal admin sesuai behavior existing.
+
+Jangan menghapus model hanya karena provider disabled.
+
+==================================================
+28. BACKUP / RESTORE REGRESSION
+==================================================
+
+Jangan merusak Backup/Restore yang sudah selesai.
+
+Pastikan dashboard tidak:
+- mengubah backup schema
+- menghapus usage records
+- mengubah provider state secara langsung tanpa endpoint.
+
+Provider state tetap melalui Provider Management API.
+
+Usage tetap melalui Usage Tracking.
+
+==================================================
+29. SECURITY
+==================================================
+
+Audit UI dan API usage.
+
+Jangan tampilkan:
+
+- raw NVIDIA API key
+- raw TokenHarbor API key
+- Authorization header
+- provider secret
+- `.env`
+- password
+- private key
+
+Jika ada:
+
+apiKeyMasked
+
+gunakan nilai masked tersebut.
+
+Contoh:
+
+`...dpP55`
+
+atau pola masking existing.
+
+Jangan melakukan unmask di frontend.
+
+==================================================
+30. ACCESS CONTROL
+==================================================
+
+Pastikan seluruh endpoint:
+
+`/admin/*`
+
+tetap membutuhkan admin authentication sesuai sistem existing.
+
+Jangan membuat endpoint admin menjadi public.
+
+Jangan memindahkan data usage ke endpoint `/v1/*`.
+
+==================================================
+31. PERFORMANCE
+==================================================
+
+Hindari:
+
+- request API berulang tanpa kebutuhan
+- fetch semua logs
+- rendering ribuan record sekaligus
+- polling agresif
+- query duplikat
+
+Gunakan pagination dan endpoint agregasi yang sudah tersedia.
+
+==================================================
+32. TEST FRONTEND
+==================================================
+
+Jika project memiliki frontend test framework, tambahkan test untuk:
+
+1. Provider list tampil.
+2. Provider status tampil.
+3. Disable provider berhasil.
+4. Enable provider berhasil.
+5. Error disable ditampilkan.
+6. Usage summary tampil.
+7. Provider usage tampil.
+8. Model usage tampil.
+9. Logs tampil.
+10. Pagination bekerja.
+11. Filter provider bekerja.
+12. Filter model bekerja.
+13. Filter status bekerja.
+14. Token tampil sesuai backend.
+15. Null token tampil sebagai `—`.
+16. HTTP status tampil benar.
+17. Credential tidak tampil.
+18. Empty state tampil.
+19. Loading state tampil.
+20. API error tidak membuat dashboard crash.
+
+==================================================
+33. BACKEND TEST REGRESSION
+==================================================
+
+Jalankan test internal yang relevan.
+
+Jangan menjalankan test Gorouter.app.
+
+Jika test suite otomatis menjalankan test Gorouter:
+
+- skip/exclude test Gorouter
+- jangan mengubah test Gorouter agar terlihat pass
+- jangan menggunakan credential Gorouter
+- jangan menggunakan Gorouter sebagai fallback
+- laporkan test yang di-skip.
+
+NVIDIA dan TokenHarbor.ai harus tetap didukung.
+
+Namun Prompt 12 fokus pada Admin UI, bukan melakukan live provider testing ulang.
+
+==================================================
+34. LINT / BUILD
+==================================================
+
+Jalankan:
+
+npm run lint
+npm run build
+
+Kemudian test internal yang relevan.
+
+Jika `npm test` menghasilkan failure karena:
+
+`models.test.ts`
+
+yang membutuhkan:
+
+`GOROUTER_API_KEY`
+
+jangan mengubah test tersebut hanya agar pass.
+
+Laporkan sebagai pre-existing/environment limitation jika memang bukan akibat perubahan Prompt 12.
+
+==================================================
+35. AUDIT SETELAH CODING
+==================================================
+
+Setelah coding selesai, lakukan audit:
+
+- Provider list
+- Provider enable/disable
+- Provider model list
+- Usage summary
+- Provider usage
+- Model usage
+- Logs
+- Filters
+- Pagination
+- Token display
+- HTTP status
+- Error handling
+- Mobile UI
+- Authentication
+- Credential masking
+- Backup compatibility
+- Model registry compatibility
+
+Pastikan tidak ada data dummy.
+
+==================================================
+36. JANGAN MELAKUKAN
+==================================================
+
+JANGAN:
+
+- test Gorouter.app
+- menggunakan Gorouter sebagai fallback
+- menggunakan credential Gorouter
+- membuat provider dummy
+- membuat model dummy
+- membuat token dummy
+- membuat usage dummy
+- mengestimasi token
+- menghapus usage history
+- menghapus provider saat disable
+- mengubah model ID asli
+- hardcode daftar provider
+- hardcode daftar model
+- membuat API client duplikat
+- membuat endpoint duplikat
+- mengubah backup schema tanpa kebutuhan
+- menghapus test existing
+- memodifikasi test Gorouter hanya agar pass
+- melakukan refactor besar yang tidak diperlukan.
+
+==================================================
+37. HASIL AKHIR WAJIB DILAPORKAN
+==================================================
+
+Setelah selesai berikan laporan lengkap:
+
+A. FILE YANG DIUBAH
+- frontend files
+- backend files jika ada
+- test files
+- documentation jika ada
+
+B. PROVIDER MANAGEMENT
+- provider list
+- enable
+- disable
+- persistence
+- model list
+
+C. USAGE DASHBOARD
+- total requests
+- success
+- error
+- blocked
+- prompt tokens
+- completion tokens
+- total tokens
+- latency
+
+D. PROVIDER BREAKDOWN
+- provider
+- requests
+- success/error/blocked
+- tokens
+- latency
+
+E. MODEL BREAKDOWN
+- model
+- provider
+- requests
+- tokens
+- status
+
+F. LOGS
+- timestamp
+- provider
+- model
+- status
+- HTTP status
+- tokens
+- latency
+- error
+- request ID jika ada
+
+G. FILTER
+- provider
+- model
+- status
+- search
+- time range
+
+H. PAGINATION
+- limit
+- offset
+- previous/next
+
+I. SECURITY
+- API key masking
+- Authorization header protection
+- credential protection
+
+J. RESPONSIVE
+- mobile
+- desktop
+
+K. TEST
+- jumlah test pass
+- jumlah test fail
+- test yang di-skip
+- alasan failure
+
+L. BUILD
+- npm run lint
+- npm run build
+
+M. REGRESSION
+Konfirmasi fitur berikut tidak rusak:
+
+- Provider Registry
+- Model Registry
+- `/v1/models`
+- Provider Enable/Disable
+- NVIDIA
+- TokenHarbor.ai
+- Usage Tracking
+- Usage Dashboard
+- Logs
+- Backup
+- Restore
+
+==================================================
+HASIL YANG DIHARAPKAN
+==================================================
+
+Setelah Prompt 12 selesai, Admin Dashboard `nvidia-api` harus sudah menjadi pusat monitoring dan management:
+
+PROVIDERS
+→ lihat semua provider
+→ lihat model
+→ Enable/Disable
+
+USAGE
+→ total request
+→ success/error/blocked
+→ total token
+→ latency
+
+PROVIDERS USAGE
+→ penggunaan per provider
+
+MODELS USAGE
+→ penggunaan per model
+
+LOGS
+→ detail request
+→ provider
+→ model
+→ status
+→ HTTP status
+→ token
+→ latency
+→ error
+
+FILTER
+→ provider
+→ model
+→ status
+→ waktu
+→ search
+
+Semua data harus berasal dari backend/API yang sebenarnya.
+
+Tidak boleh ada data dummy atau estimasi.
+
+Jangan mengerjakan fitur lain di luar scope ini tanpa alasan yang benar-benar diperlukan untuk integrasi.
+
+Selesaikan implementasi, jalankan lint/build/test internal, lalu berikan laporan lengkap sesuai bagian HASIL AKHIR WAJIB DILAPORKAN.
 
 
 ```
