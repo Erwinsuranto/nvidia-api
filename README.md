@@ -8,15 +8,962 @@
 
 
 
+# 
+```
 
 
 
+```
+
+# 
+```
+
+
+
+```
 
 
 # 
 ```
 
 
+
+```
+
+
+# 
+```
+
+PROMPT 13 — FINAL ADMIN DASHBOARD INTEGRATION, PROVIDER/MODEL MANAGEMENT, USAGE, BACKUP & RESTORE
+
+Gunakan model GLM 5.2 untuk mengerjakan prompt ini.
+
+Lanjutkan project `nvidia-api` dari kondisi saat ini. Jangan mengulang, merusak, atau mengganti fitur yang sudah selesai pada Prompt 1–12.
+
+TUJUAN:
+Selesaikan integrasi Admin Dashboard agar seluruh fitur backend yang sudah dibuat benar-benar tersedia dan nyaman digunakan dari UI admin.
+
+FITUR YANG WAJIB TERINTEGRASI:
+- Provider Management
+- Enable/Disable Provider
+- Model Registry
+- Model per Provider
+- Usage Dashboard
+- Usage per Provider
+- Usage per Model
+- Total Token
+- Usage Logs
+- Log Detail
+- Filter
+- Pagination
+- Backup
+- Restore
+- Security Masking
+
+==================================================
+1. AUDIT UI EXISTING
+==================================================
+
+Sebelum mengubah kode:
+
+- audit struktur frontend/admin yang sudah ada
+- cari route/page admin existing
+- cari komponen dashboard existing
+- cari API client/service existing
+- gunakan struktur UI existing
+- jangan membuat dashboard baru yang duplikatif
+- jangan mengganti framework frontend
+- jangan melakukan refactor besar tanpa alasan
+
+Jika sudah ada halaman/section yang sesuai, integrasikan fitur ke halaman tersebut.
+
+==================================================
+2. PROVIDER MANAGEMENT
+==================================================
+
+Buat/sempurnakan halaman Providers.
+
+Tampilkan provider yang benar-benar terdaftar pada runtime.
+
+Setiap provider minimal:
+
+- Provider name
+- Provider ID
+- Status Active/Disabled
+- jumlah model
+- daftar model atau tombol melihat model
+- Enable
+- Disable
+
+Provider harus berasal dari backend registry/runtime.
+
+Jangan menampilkan provider dummy.
+
+Provider utama untuk real testing:
+
+- NVIDIA
+- TokenHarbor.ai
+
+Gorouter.app JANGAN digunakan.
+
+==================================================
+3. ENABLE / DISABLE PROVIDER
+==================================================
+
+Tombol Enable/Disable harus memanggil API backend existing.
+
+Flow:
+
+Active
+→ Disable
+→ confirmation
+→ API backend
+→ refresh state
+→ Disabled
+
+Disabled
+→ Enable
+→ API backend
+→ refresh state
+→ Active
+
+State harus benar setelah:
+
+- refresh browser
+- server restart
+
+Jangan hanya mengubah state frontend.
+
+Backend tetap menjadi source of truth.
+
+==================================================
+4. MODEL PER PROVIDER
+==================================================
+
+Tampilkan model yang benar-benar tersedia dari provider registry/discovery.
+
+Minimal:
+
+Provider
+├── Status
+├── Model count
+└── Models
+    ├── Exact Model ID
+    ├── Provider
+    └── Status
+
+Jangan hardcode model yang tidak ditemukan dari backend.
+
+Jika DeepSeek V4 Pro atau GLM 5.2 tersedia dari provider yang benar-benar terdaftar, gunakan exact model ID hasil discovery.
+
+Jangan membuat model palsu.
+
+==================================================
+5. MODEL STATUS
+==================================================
+
+Jika backend sudah mendukung model enable/disable:
+
+tampilkan:
+
+- model ID
+- provider
+- Enabled/Disabled
+
+Jika backend belum mendukung model enable/disable secara resmi:
+
+JANGAN membuat sistem backend baru hanya untuk UI.
+
+Cukup tampilkan status yang tersedia.
+
+Provider disabled tetap harus memblokir request model provider tersebut.
+
+==================================================
+6. USAGE DASHBOARD
+==================================================
+
+Gunakan endpoint Usage existing.
+
+Summary:
+
+- Total Requests
+- Successful
+- Errors
+- Blocked
+- Prompt Tokens
+- Completion Tokens
+- Total Tokens
+- Average Latency
+
+Jangan menghitung token dari frontend.
+
+Backend adalah source of truth.
+
+Jika token null:
+
+tampilkan `—` atau null sesuai UI.
+
+Jangan melakukan estimasi token.
+
+==================================================
+7. USAGE PER PROVIDER
+==================================================
+
+Buat tabel:
+
+Provider
+Requests
+Success
+Error
+Blocked
+Prompt Tokens
+Completion Tokens
+Total Tokens
+Average Latency
+
+Provider harus berasal dari Usage API.
+
+Jangan memasukkan provider dummy.
+
+==================================================
+8. USAGE PER MODEL
+==================================================
+
+Buat tabel:
+
+Model
+Provider
+Requests
+Success
+Error
+Blocked
+Prompt Tokens
+Completion Tokens
+Total Tokens
+Average Latency
+
+Gunakan exact model ID dari backend.
+
+Jangan mempersingkat atau mengubah model ID secara internal.
+
+==================================================
+9. USAGE LOGS
+==================================================
+
+Buat/sempurnakan halaman Logs.
+
+Minimal:
+
+- Timestamp
+- Provider
+- Model
+- Status
+- HTTP Status
+- Prompt Tokens
+- Completion Tokens
+- Total Tokens
+- Latency
+- Request ID
+- Client/API identifier masked
+
+Status harus dibedakan:
+
+- success
+- error
+- blocked
+
+Gunakan status backend.
+
+==================================================
+10. LOG DETAIL
+==================================================
+
+Saat admin membuka satu log:
+
+Tampilkan:
+
+- Timestamp
+- Provider
+- Model
+- Status
+- HTTP Status
+- Latency
+- Prompt Tokens
+- Completion Tokens
+- Total Tokens
+- Request ID
+- Client ID
+- Error Message
+
+JANGAN tampilkan:
+
+- API key asli
+- Authorization header
+- NVIDIA API key
+- TokenHarbor API key
+- provider secret
+- .env
+- credential lainnya
+
+Jika backend memberikan apiKeyMasked, gunakan nilai tersebut.
+
+==================================================
+11. FILTER LOGS
+==================================================
+
+Tambahkan:
+
+- Provider
+- Model
+- Status
+- From
+- To
+- Search Request ID
+
+Gunakan filter backend existing.
+
+Jangan mengambil seluruh dataset lalu filtering hanya di frontend jika backend sudah menyediakan filter.
+
+==================================================
+12. PAGINATION
+==================================================
+
+Logs wajib menggunakan pagination.
+
+Gunakan mekanisme existing seperti:
+
+limit
+offset
+
+UI:
+
+Previous
+1 2 3 ...
+Next
+
+Jangan mengambil seluruh log sekaligus.
+
+==================================================
+13. REFRESH
+==================================================
+
+Tambahkan tombol Refresh.
+
+Refresh harus mengambil data terbaru dari backend.
+
+Jangan menggunakan polling agresif.
+
+Tidak perlu websocket.
+
+Loading:
+
+Loading...
+
+Error:
+
+Failed to load data
+Retry
+
+Empty:
+
+No data found
+
+Pastikan array kosong tidak menyebabkan crash.
+
+==================================================
+14. PROVIDER + USAGE INTEGRATION
+==================================================
+
+Ketika provider disabled:
+
+Provider
+→ Disabled
+→ request baru
+→ blocked
+→ Usage Log = blocked
+
+Saat enabled:
+
+Provider
+→ Enabled
+→ request dapat diproses
+
+Jangan hanya mengubah tampilan frontend.
+
+==================================================
+15. NVIDIA REAL VERIFICATION
+==================================================
+
+NVIDIA adalah provider real.
+
+Jika credential NVIDIA valid, lakukan real test.
+
+Prioritas model:
+
+deepseek-ai/deepseek-v4-flash-0731
+
+Jika tersedia dan memiliki inference access:
+
+- request nyata
+- HTTP 200
+- response valid
+- provider = nvidia
+- exact model ID benar
+
+Boleh menggunakan model NVIDIA lain yang benar-benar tersedia.
+
+Jangan membuat model dummy.
+
+==================================================
+16. TOKENHARBOR.AI REAL VERIFICATION
+==================================================
+
+TokenHarbor.ai juga WAJIB menjadi provider real.
+
+Gunakan credential TokenHarbor jika tersedia.
+
+Model harus berasal dari discovery/configuration TokenHarbor yang nyata.
+
+Test:
+
+- request nyata
+- provider benar
+- exact model benar
+- HTTP status
+- token usage jika tersedia
+- latency
+- Usage Log
+
+Jika credential tidak tersedia atau tidak memiliki inference access:
+
+JANGAN membuat credential dummy.
+
+Laporkan error sebenarnya.
+
+==================================================
+17. GOROUTER.APP
+==================================================
+
+Gorouter.app TIDAK DIGUNAKAN.
+
+JANGAN:
+
+- menjalankan test Gorouter
+- melakukan integration test Gorouter
+- menggunakan Gorouter sebagai fallback
+- menggunakan Gorouter sebagai proxy
+- menggunakan credential Gorouter
+- menggunakan model Gorouter
+- memasukkan Gorouter ke provider runtime
+
+Jika test suite otomatis menemukan test Gorouter:
+
+- skip/exclude
+- jangan mengubah test untuk memalsukan hasil
+- laporkan test yang di-skip
+
+Fokus provider real:
+
+NVIDIA
+TokenHarbor.ai
+
+==================================================
+18. INVALID MODEL
+==================================================
+
+Gunakan model ID yang benar-benar tidak tersedia.
+
+Pastikan:
+
+- request ditolak
+- tidak diteruskan ke provider
+- tidak fallback ke Gorouter
+- tidak tercatat sebagai success
+- log mencatat error/blocked sesuai behavior existing
+
+==================================================
+19. UPSTREAM ERROR
+==================================================
+
+Jika dapat diuji secara aman:
+
+- upstream error harus dicatat sebagai error
+- HTTP status aktual disimpan
+- error message disimpan
+- token tetap null jika upstream tidak memberikan usage
+
+Jangan membuat error palsu.
+
+==================================================
+20. STREAMING
+==================================================
+
+Jika provider mendukung streaming:
+
+NVIDIA:
+- test streaming jika credential valid
+
+TokenHarbor:
+- test streaming jika tersedia dan credential valid
+
+Pastikan:
+
+- stream selesai normal
+- Usage Log dibuat
+- usage disimpan jika tersedia
+- usage null tetap null jika upstream tidak memberikan
+- jangan mengestimasi token
+- logging tidak memutus stream
+
+==================================================
+21. ADMIN USAGE ENDPOINT
+==================================================
+
+Verifikasi endpoint existing:
+
+GET /admin/usage
+GET /admin/usage/providers
+GET /admin/usage/models
+GET /admin/usage/records
+GET /admin/logs
+
+Pastikan data konsisten dengan request nyata.
+
+==================================================
+22. BACKUP UI
+==================================================
+
+Integrasikan fitur Backup/Restore existing.
+
+Gunakan endpoint:
+
+GET /admin/backup/list
+GET /admin/backup/info/:id
+GET /admin/backup/download/:id
+POST /admin/backup/restore/:id
+DELETE /admin/backup/:id
+
+Tampilkan:
+
+- Backup ID
+- Created At
+- Size
+- Usage Record Count
+- Version
+- Valid/Invalid
+
+Action:
+
+Create Backup
+Download
+Info
+Restore
+Delete
+
+Jangan membuat endpoint backup duplikatif.
+
+==================================================
+23. CREATE BACKUP
+==================================================
+
+Saat admin menekan Create Backup:
+
+- loading
+- panggil backend
+- tampilkan success/error
+- refresh daftar backup
+
+Backup harus mencakup data persistent penting seperti:
+
+- Usage records
+- Usage Logs
+- Provider state
+- persistent state yang memang diperlukan
+
+Jangan memasukkan secret.
+
+==================================================
+24. RESTORE
+==================================================
+
+Restore adalah operasi sensitif.
+
+Sebelum restore tampilkan confirmation:
+
+Backup ID
+Timestamp
+Usage Record Count
+Version
+
+Tombol:
+
+Restore
+Cancel
+
+Jangan melakukan restore hanya karena halaman dibuka.
+
+Jika backend membuat pre-restore backup:
+
+tampilkan hasilnya.
+
+==================================================
+25. BACKUP SECURITY
+==================================================
+
+Backup TIDAK BOLEH berisi:
+
+- NVIDIA API key
+- TokenHarbor API key
+- Authorization header
+- client secret
+- provider credential
+- .env
+- password
+- private key
+
+Gunakan filtering existing.
+
+Jangan membuat encryption palsu.
+
+==================================================
+26. ERROR HANDLING
+==================================================
+
+Semua API call harus menangani:
+
+- loading
+- success
+- empty
+- error
+
+Pastikan tidak crash ketika:
+
+tokens = null
+latency = null
+httpStatus = null
+errorMessage = null
+
+==================================================
+27. RESPONSIVE UI
+==================================================
+
+Admin UI harus usable pada:
+
+- desktop
+- tablet
+- mobile
+
+Untuk tabel besar boleh menggunakan horizontal scroll.
+
+Jangan membuat layout mobile rusak.
+
+==================================================
+28. PERFORMANCE
+==================================================
+
+Jangan:
+
+- mengambil seluruh logs
+- polling agresif
+- request API berulang tanpa alasan
+- agregasi besar di frontend
+- duplicate request saat render
+
+Gunakan endpoint aggregation/pagination existing.
+
+==================================================
+29. FRONTEND TEST
+==================================================
+
+Jika project memiliki frontend testing:
+
+tambahkan test untuk:
+
+- provider list
+- enable provider
+- disable provider
+- provider refresh
+- model list
+- usage summary
+- provider usage
+- model usage
+- logs
+- filter
+- pagination
+- log detail
+- backup list
+- create backup
+- restore confirmation
+- empty state
+- error state
+- null token handling
+- credential masking
+
+==================================================
+30. BACKEND REGRESSION
+==================================================
+
+Jangan merusak:
+
+- Provider Registry
+- Provider Enable/Disable
+- Model Registry
+- /v1/models
+- Usage Tracking
+- Usage Dashboard API
+- Usage Logs
+- Backup
+- Restore
+- Streaming
+- NVIDIA
+- TokenHarbor.ai
+
+Jangan melakukan refactor besar.
+
+==================================================
+31. TEST SUITE
+==================================================
+
+Jalankan:
+
+npm run lint
+npm run build
+
+Untuk test internal:
+
+npm test
+
+Tetapi:
+
+JANGAN menjalankan test/integration test Gorouter.app.
+
+Jika test suite otomatis menjalankan Gorouter:
+
+- skip/exclude test tersebut
+- jangan memalsukan hasil
+- jangan mengubah production code hanya agar Gorouter test pass
+
+NVIDIA dan TokenHarbor.ai boleh dan harus dites jika credential valid.
+
+==================================================
+32. SECURITY AUDIT
+==================================================
+
+Scan source, logs, backup, dan frontend.
+
+Pastikan tidak ada:
+
+nvapi-...
+Authorization: Bearer ...
+NVIDIA_API_KEY
+TOKENHARBOR_API_KEY
+raw API key
+.env
+private key
+password
+provider secret
+
+Credential tidak boleh masuk:
+
+- frontend bundle
+- logs
+- backup
+- API response
+- UI
+
+==================================================
+33. END-TO-END AUDIT
+==================================================
+
+Verifikasi alur:
+
+Admin UI
+↓
+Admin API
+↓
+Provider Registry
+↓
+Model Registry
+↓
+Provider
+↓
+Upstream
+↓
+Usage Tracking
+↓
+Usage Logs
+↓
+Usage Dashboard
+↓
+Backup
+
+Ambil minimal satu request nyata jika credential tersedia.
+
+Contoh data:
+
+Provider: nvidia
+Model: exact model ID
+Status: success
+HTTP: 200
+Prompt Tokens: actual
+Completion Tokens: actual
+Total Tokens: actual
+Latency: actual
+
+Data tersebut harus konsisten pada:
+
+- API response
+- Usage record
+- Provider breakdown
+- Model breakdown
+- Logs
+- Log detail
+- Backup
+
+==================================================
+34. FINAL TEST MATRIX
+==================================================
+
+NVIDIA:
+
+Enabled
+→ real request
+→ success jika credential valid
+
+Disabled
+→ request
+→ blocked
+
+Enabled kembali
+→ request
+→ success jika credential valid
+
+TokenHarbor.ai:
+
+Enabled
+→ real request
+→ success jika credential valid
+
+Disabled
+→ request
+→ blocked
+
+Enabled kembali
+→ request
+→ success jika credential valid
+
+Invalid model:
+
+→ blocked/validation error
+→ tidak fallback
+
+Upstream error:
+
+→ status error
+→ HTTP status aktual
+
+Streaming:
+
+→ stream normal
+→ usage actual atau null
+
+Backup:
+
+→ create
+→ list
+→ info
+→ download
+→ restore
+→ verify
+
+==================================================
+35. HASIL AKHIR
+==================================================
+
+Setelah selesai berikan laporan lengkap:
+
+UI:
+- Provider Management
+- Enable/Disable
+- Model Registry
+- Usage Dashboard
+- Provider Usage
+- Model Usage
+- Logs
+- Log Detail
+- Filter
+- Pagination
+- Backup
+- Restore
+
+Provider:
+- NVIDIA status
+- TokenHarbor status
+- model yang ditemukan
+- exact model ID
+
+Real Test:
+- NVIDIA result
+- TokenHarbor result
+- HTTP status
+- token usage
+- latency
+- streaming
+
+Backup:
+- backup result
+- restore result
+- security result
+
+Testing:
+- npm run lint
+- npm run build
+- npm test
+- jumlah pass/fail/skip
+- Gorouter test yang di-skip
+
+Security:
+- API key masking
+- credential protection
+- backup security
+- frontend secret audit
+
+Regression:
+- Provider Management
+- Enable/Disable
+- Model Registry
+- /v1/models
+- Usage
+- Logs
+- Backup
+- Restore
+- NVIDIA
+- TokenHarbor.ai
+- Streaming
+
+Jika ada masalah, tuliskan masalah sebenarnya.
+
+JANGAN:
+
+- test Gorouter.app
+- menggunakan Gorouter sebagai fallback
+- menggunakan credential Gorouter
+- membuat provider dummy
+- membuat model dummy
+- membuat token dummy
+- mengestimasi token
+- membocorkan API key
+- membuat database baru tanpa kebutuhan
+- membuat sistem Usage kedua
+- membuat sistem Backup kedua
+- membuat endpoint duplikat
+- melakukan refactor besar yang tidak diperlukan.
+
+Fokus utama project sekarang adalah:
+
+NVIDIA + TokenHarbor.ai
+
+bukan Gorouter.app.
 
 ```
 
