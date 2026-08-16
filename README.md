@@ -17,7 +17,165 @@
 
 # 
 ```
+Lakukan redesign UI Admin Dashboard pada project `nvidia-api` dengan MENGIKUTI GAMBAR REFERENSI yang sudah disimpan di:
 
+`docs/design/admin-dashboard-reference.png`
+
+TUJUAN:
+Buat UI NVIDIA API Admin Dashboard mengikuti desain pada gambar referensi tersebut secara visual dan konsisten.
+
+ATURAN UTAMA:
+- Gunakan gambar `docs/design/admin-dashboard-reference.png` sebagai sumber utama desain.
+- Jangan membuat gambar/desain baru.
+- Jangan hanya meniru warna; ikuti struktur/layout, spacing, ukuran card, typography, navigation, button, table, status badge, dan responsive behavior.
+- Gambar referensi memiliki tampilan desktop dan mobile. Gunakan bagian masing-masing sebagai acuan responsive.
+- UI harus tetap menggunakan data/API/backend yang sudah ada.
+- Jangan mengubah backend, provider registry, usage tracking, backup, API endpoint, atau logic bisnis.
+- Jangan menambah fitur baru.
+- Fokus hanya pada UI/UX dan styling.
+
+YANG HARUS DISESUAIKAN:
+1. Overall layout
+   - Header/top bar
+   - Sidebar/navigation atau tab navigation
+   - Content container
+   - Section spacing
+   - Card layout
+   - Border radius
+   - Border/shadow
+   - Typography hierarchy
+
+2. Dashboard
+   - Usage Summary
+   - Total Requests
+   - Successful
+   - Errors
+   - Blocked
+   - Prompt Tokens
+   - Completion Tokens
+   - Total Tokens
+   - Average Latency
+   - Registered Providers
+
+3. Navigation
+   Pertahankan section yang sudah ada:
+   - Overview
+   - Providers
+   - Provider Usage
+   - Model Usage
+   - Logs
+   - Backup
+
+   Hanya ubah tampilan agar mengikuti referensi.
+
+4. Provider UI
+   - Provider list
+   - Provider name
+   - Provider ID
+   - jumlah model
+   - status Enabled/Disabled
+   - tombol Enable/Disable
+
+   Jangan mengubah logic enable/disable.
+
+5. Usage / Logs / Backup
+   Semua halaman harus menggunakan design language yang sama dengan reference.
+   Jangan mengubah fungsi existing.
+
+6. RESPONSIVE
+   WAJIB cek:
+   - Desktop
+   - Tablet jika relevan
+   - Mobile
+
+   Mobile harus mengikuti bagian mobile pada reference.
+   Jangan sampai:
+   - horizontal overflow
+   - tabel keluar layar
+   - card terpotong
+   - button keluar container
+   - text overlap
+   - navigation rusak.
+
+7. VISUAL QUALITY
+   Pastikan hasil akhir terlihat seperti satu produk yang konsisten:
+   - spacing konsisten
+   - font hierarchy jelas
+   - card tidak terlalu besar
+   - informasi mudah dipindai
+   - status badge jelas
+   - button konsisten
+   - warna mengikuti reference
+   - jangan menambahkan dekorasi yang tidak ada di reference.
+
+8. IMPLEMENTATION
+   Sebelum mengubah code:
+   - audit UI existing
+   - cari file frontend/admin yang digunakan
+   - identifikasi component/style yang perlu diubah
+   - jangan membuat duplicate UI system jika component existing masih bisa digunakan.
+
+   Setelah perubahan:
+   - jalankan build
+   - jalankan test UI yang tersedia
+   - jalankan lint/typecheck jika tersedia.
+
+9. UI TEST
+   Jalankan server NVIDIA API.
+   Gunakan browser/Playwright/Puppeteer yang tersedia untuk membuka:
+
+   `http://127.0.0.1:3000/admin`
+
+   Test minimal:
+   - Overview
+   - Providers
+   - Provider Usage
+   - Model Usage
+   - Logs
+   - Backup
+   - desktop viewport
+   - mobile viewport
+
+   Periksa:
+   - tidak ada console error selain error benign yang sudah diketahui
+   - tidak ada horizontal overflow
+   - semua navigation dapat diklik
+   - data tetap muncul
+   - Enable/Disable tetap bekerja
+   - Backup UI tetap bekerja
+   - tabel/card responsive.
+
+10. JANGAN MENGUBAH LOGIC
+   Jangan mengubah:
+   - provider registry
+   - provider discovery
+   - model registry
+   - API request
+   - usage tracking
+   - logs backend
+   - backup/restore backend
+   - authentication
+   - credential
+   - endpoint API
+
+HASIL AKHIR:
+Laporkan:
+- file UI yang diubah
+- component/style yang diubah
+- desktop test result
+- mobile test result
+- halaman yang sudah mengikuti reference
+- console error jika ada
+- overflow/responsive issue jika ada
+- build result
+- test result
+
+PENTING:
+Ini hanya REDESIGN UI berdasarkan reference.
+Jangan menambah fitur.
+Jangan membuat gambar baru.
+Jangan mengubah backend.
+Jangan mengubah behavior/API existing.
 
 
 ```
