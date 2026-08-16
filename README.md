@@ -5,14 +5,54 @@
 
 
 
-
-
-
 # 
 ```
 
 
 
+```
+# 
+```
+
+
+
+```
+# 
+```
+
+
+
+```
+# 
+```
+
+
+Perbaiki integrasi live data Usage & Logs pada `nvidia-api`.
+
+Masalah:
+Dashboard UI sudah tampil, tetapi data Usage/Logs belum live dan belum otomatis ter-update setelah request API baru.
+
+Tugas:
+- Audit sumber data `/admin/usage`, `/admin/usage/providers`, `/admin/usage/models`, `/admin/usage/records`, dan `/admin/logs`.
+- Pastikan UI mengambil data langsung dari backend, bukan data statis/cache lama.
+- Setelah request API baru, data Usage dan Logs harus mencerminkan record terbaru.
+- Tombol Refresh harus mengambil data terbaru dari backend.
+- Jika sudah ada auto-refresh/polling, pastikan benar-benar bekerja.
+- Jangan membuat data dummy.
+- Jangan mengubah struktur/provider/API yang sudah bekerja.
+- Jangan menghapus Usage/Logs existing.
+- Pastikan provider, model, status, HTTP status, token, latency, dan timestamp berasal dari record aktual.
+- Test dengan membuat 1 request API nyata, lalu refresh dashboard dan pastikan angka/log bertambah sesuai record tersebut.
+- Test juga tab Overview, Provider Usage, Model Usage, dan Logs.
+- Pastikan tidak ada console error terkait data/API.
+
+Setelah selesai tampilkan:
+1. Penyebab data tidak live.
+2. File yang diperbaiki.
+3. Endpoint yang digunakan UI.
+4. Hasil test request → log → dashboard.
+5. Pastikan data terbaru muncul tanpa restart server.
+6. URL Admin UI.
 ```
 
 # 
