@@ -23,10 +23,630 @@
 ```
 
 
-# 
+# Prompt 12 — Final Audit Existing Features
 ```
 
+Lanjutkan project `nvidia-api`.
 
+PENTING:
+JANGAN MENAMBAHKAN FITUR BARU.
+
+Pada tahap ini jangan membuat API Key Management, Quota, Client Management, Add Provider UI, OAuth, billing, atau fitur baru lainnya.
+
+SCOPE FINAL PROJECT SAAT INI HANYA:
+1. Usage Tracking
+2. Usage Dashboard
+3. Usage Logs
+4. Provider Enable/Disable
+5. Backup & Restore
+6. Multi-provider melalui provider registry/code yang sudah ada
+
+Provider baru MASIH ditambahkan melalui CODE/provider registry.
+JANGAN membuat UI atau endpoint "Add Provider".
+JANGAN mengubah arsitektur provider menjadi dynamic database provider management.
+
+Provider yang sudah ada harus tetap dapat bekerja melalui registry/configuration yang sekarang.
+
+==================================================
+1. AUDIT KONDISI SEKARANG
+==================================================
+
+Audit seluruh implementasi existing setelah Prompt 1–11.
+
+Periksa:
+
+- Provider Registry
+- Model Registry
+- Provider Enable/Disable
+- Usage Tracking
+- Usage Dashboard
+- Usage Logs
+- Backup
+- Restore
+- `/v1/models`
+- endpoint API existing
+- persistence
+- security
+- streaming
+- provider discovery
+
+Jangan melakukan refactor besar.
+
+Jika implementasi sudah benar:
+JANGAN ubah hanya untuk mempercantik kode.
+
+Jika ditemukan bug:
+perbaiki root cause sekecil mungkin.
+
+==================================================
+2. PROVIDER ARCHITECTURE
+==================================================
+
+Pastikan project tetap MULTI-PROVIDER.
+
+Provider berasal dari source code/provider registry yang sudah ada.
+
+Contoh provider yang saat ini relevan:
+- NVIDIA
+- TokenHarbor.ai
+- provider lain yang memang sudah terdaftar di code
+
+Jangan hardcode hanya NVIDIA.
+
+Namun JANGAN membuat fitur Add Provider.
+
+Provider baru tetap dilakukan dengan:
+- menambahkan provider implementation
+- mendaftarkan provider pada registry
+- menambahkan konfigurasi credential sesuai arsitektur existing.
+
+Admin UI hanya boleh:
+- melihat provider
+- melihat model
+- enable provider
+- disable provider.
+
+Tidak boleh:
+- Add Provider
+- Edit Provider
+- Delete Provider
+- memasukkan provider baru melalui UI.
+
+==================================================
+3. PROVIDER ENABLE/DISABLE
+==================================================
+
+Pastikan setiap provider yang terdaftar melalui code dapat:
+
+ACTIVE
+→ menerima request
+
+DISABLED
+→ request baru diblokir
+
+ENABLE kembali
+→ request dapat digunakan kembali.
+
+State harus persistent.
+
+Restart server tidak boleh menghilangkan state disable.
+
+Provider disabled:
+- tidak boleh menerima request upstream
+- tidak boleh fallback diam-diam ke provider lain
+- harus tercatat sebagai blocked sesuai Usage schema existing.
+
+Jangan menghapus provider/model dari registry hanya karena disabled.
+
+==================================================
+4. MODEL REGISTRY
+==================================================
+
+Model harus berasal dari provider registry/discovery yang benar-benar digunakan.
+
+Jangan membuat model dummy.
+
+Jangan hardcode model hanya agar test lulus.
+
+`/v1/models` harus menampilkan model yang benar-benar tersedia sesuai behavior existing.
+
+Provider disabled boleh tetap dikenal oleh admin/registry sesuai desain existing, tetapi model tersebut tidak boleh menerima request ketika provider disabled.
+
+==================================================
+5. USAGE TRACKING
+==================================================
+
+Pertahankan Usage Tracking yang sudah ada.
+
+Setiap request yang relevan harus dapat mencatat:
+
+- timestamp
+- provider
+- exact model
+- status
+- HTTP status
+- prompt/input tokens
+- completion/output tokens
+- total tokens
+- latency
+- error message/code jika ada
+- request ID jika tersedia
+- client/API identifier yang memang sudah ada pada sistem
+
+JANGAN membuat sistem usage kedua.
+
+JANGAN membuat database usage baru.
+
+Gunakan storage existing.
+
+Token harus berasal dari upstream.
+
+Jika provider tidak mengirim usage:
+- tetap null sesuai schema existing
+- jangan estimasi
+- jangan mengarang token.
+
+Pastikan:
+
+prompt_tokens + completion_tokens = total_tokens
+
+jika semua nilai tersedia.
+
+==================================================
+6. USAGE STATUS
+==================================================
+
+Pastikan Usage dapat membedakan:
+
+SUCCESS
+BLOCKED
+ERROR
+
+Contoh:
+
+HTTP 200
+→ success
+
+Provider disabled
+→ blocked
+
+Invalid model
+→ blocked/validation sesuai behavior existing
+
+Upstream 401/403/429/5xx
+→ error
+
+Jangan mengubah status sebenarnya hanya agar dashboard terlihat bagus.
+
+==================================================
+7. HTTP STATUS
+==================================================
+
+Pastikan masalah Prompt 8 tetap terselesaikan.
+
+Success request:
+httpStatus = 200
+
+Upstream error:
+httpStatus = status asli upstream
+
+Blocked:
+gunakan status existing yang memang digunakan project.
+
+Jangan mengarang HTTP status.
+
+Pastikan nilai tersebut konsisten pada:
+
+- Usage Logs
+- `/admin/usage`
+- `/admin/usage/providers`
+- `/admin/usage/models`
+- `/admin/usage/records`
+- `/admin/logs`
+
+==================================================
+8. STREAMING
+==================================================
+
+Audit streaming existing.
+
+Pastikan:
+
+- stream dimulai dengan benar
+- stream tidak diputus oleh Usage Logging
+- stream selesai normal
+- Usage Log tetap dibuat.
+
+Jika final chunk upstream memiliki:
+
+usage: null
+
+maka:
+- simpan token sebagai null
+- jangan estimasi
+- jangan mengubah menjadi error.
+
+Jika upstream memberikan usage:
+- simpan usage asli.
+
+Jangan melakukan tokenizer tambahan hanya untuk menghasilkan angka token.
+
+==================================================
+9. USAGE DASHBOARD
+==================================================
+
+Jangan menambahkan analytics baru.
+
+Pastikan dashboard existing menampilkan dengan benar:
+
+TOTAL
+- requests
+- success
+- error
+- blocked
+- input tokens
+- output tokens
+- total tokens
+- average latency jika memang sudah ada.
+
+PER PROVIDER
+- provider
+- requests
+- success/error/blocked
+- input tokens
+- output tokens
+- total tokens
+- latency jika tersedia.
+
+PER MODEL
+- exact model
+- provider
+- requests
+- tokens
+- status.
+
+Jangan membuat fitur billing/quota.
+
+==================================================
+10. LOGS
+==================================================
+
+Pastikan Logs existing dapat:
+
+- menampilkan record
+- filter provider
+- filter model
+- filter status
+- pagination
+- melihat detail jika sudah ada.
+
+Jangan menampilkan:
+
+- raw API key
+- provider secret
+- Authorization header
+- credential.
+
+Provider dan model harus berasal dari request sebenarnya.
+
+==================================================
+11. BACKUP
+==================================================
+
+Pertahankan sistem Backup/Restore yang sudah dibuat.
+
+Backup minimal harus mempertahankan:
+
+- Usage records
+- Provider state enabled/disabled
+- persistent state lain yang memang diperlukan existing
+- metadata backup
+- backupVersion.
+
+Jangan memasukkan:
+
+- NVIDIA API key
+- TokenHarbor API key
+- provider credentials
+- Authorization header
+- `.env`
+- private key
+- password
+- secret.
+
+Jangan menambahkan encryption baru jika project belum memiliki mekanisme encryption yang benar.
+
+Jangan membuat encryption palsu.
+
+==================================================
+12. RESTORE
+==================================================
+
+Audit restore existing.
+
+Restore harus:
+
+1. validasi backup
+2. validasi version
+3. validasi struktur
+4. membuat pre-restore backup
+5. restore dataset
+6. restore provider state
+7. memastikan data dapat dibaca kembali.
+
+Tidak boleh ada automatic restore saat startup.
+
+Jika restore gagal:
+- jangan meninggalkan state setengah restore jika dapat dihindari
+- tampilkan error yang jelas.
+
+==================================================
+13. BACKUP RETENTION
+==================================================
+
+Jangan menambah fitur retention baru.
+
+Pertahankan behavior retention yang sudah dibuat sebelumnya.
+
+Jika `BACKUP_MAX_BACKUPS` sudah ada:
+- pastikan tetap bekerja sesuai konfigurasi.
+
+Jangan menghapus backup lama tanpa konfigurasi.
+
+==================================================
+14. SECURITY AUDIT
+==================================================
+
+Scan source, logs, usage records, dan backup.
+
+Pastikan:
+
+0 raw NVIDIA API key
+0 raw TokenHarbor API key
+0 Authorization header
+0 provider credential
+0 `.env` secret
+0 private key.
+
+Masked value boleh jika memang diperlukan.
+
+Jangan menampilkan secret dalam laporan.
+
+==================================================
+15. REAL PROVIDER TEST
+==================================================
+
+Lakukan verification hanya untuk provider nyata yang memang ditentukan:
+
+NVIDIA
+TokenHarbor.ai
+
+WAJIB:
+- NVIDIA boleh dan harus dites jika credential tersedia.
+- TokenHarbor.ai boleh dan harus dites jika credential tersedia.
+
+DILARANG:
+- Gorouter.app
+- credential Gorouter
+- Gorouter sebagai fallback
+- Gorouter sebagai model discovery source
+- live Gorouter integration test.
+
+Jangan membuat provider dummy.
+
+==================================================
+16. NVIDIA TEST
+==================================================
+
+Gunakan model NVIDIA yang benar-benar ditemukan.
+
+Prioritas:
+
+`deepseek-ai/deepseek-v4-flash-0731`
+
+Jika tersedia dan credential memiliki inference permission:
+
+- request nyata
+- HTTP status
+- response
+- provider
+- exact model
+- token usage
+- latency
+- Usage Log.
+
+Test provider:
+
+enabled
+→ request
+
+disabled
+→ blocked
+
+enabled kembali
+→ request.
+
+Jika credential NVIDIA mendapat 401/403:
+- jangan bypass
+- laporkan status sebenarnya.
+
+==================================================
+17. TOKENHARBOR TEST
+==================================================
+
+Gunakan model TokenHarbor yang benar-benar tersedia.
+
+Jika credential tersedia:
+
+- request nyata
+- exact provider ID
+- exact model ID
+- HTTP status
+- usage jika tersedia
+- latency
+- Usage Log.
+
+Test:
+
+enabled
+→ request
+
+disabled
+→ blocked
+
+enabled kembali
+→ request.
+
+Jika TokenHarbor credential tidak memiliki inference permission:
+- jangan bypass
+- laporkan status sebenarnya.
+
+==================================================
+18. BACKUP REAL DATA
+==================================================
+
+Setelah real provider test jika credential tersedia:
+
+1. Buat usage records.
+2. Buat backup.
+3. Periksa backup.
+4. Pastikan usage records masuk.
+5. Pastikan provider state masuk.
+6. Pastikan credential TIDAK masuk.
+7. Restore.
+8. Pastikan usage dapat dibaca.
+9. Pastikan provider state tetap benar.
+
+Jangan menghapus production data.
+
+==================================================
+19. TEST SUITE
+==================================================
+
+Jalankan:
+
+npm run lint
+npm run build
+
+Untuk test:
+
+JANGAN menjalankan test/integration test Gorouter.app.
+
+NVIDIA dan TokenHarbor.ai boleh dites.
+
+Jika `npm test` otomatis menjalankan test Gorouter:
+- skip/exclude test Gorouter.
+- jangan memodifikasi test hanya agar pass.
+- laporkan skipped test.
+
+`models.test.ts` yang membutuhkan:
+
+GROUTER_API_KEY
+atau
+GROUTER_API_KEYS
+
+tetap dianggap pre-existing/environment limitation jika memang bukan akibat perubahan saat ini.
+
+Jangan membuat credential Gorouter.
+
+==================================================
+20. REGRESSION
+==================================================
+
+Pastikan tidak merusak:
+
+- provider registry
+- model registry
+- provider discovery
+- provider enable/disable
+- `/v1/models`
+- normal API request
+- streaming
+- Usage Tracking
+- Usage Dashboard
+- Usage Logs
+- Backup
+- Restore
+- persistence.
+
+Jangan menambahkan fitur lain.
+
+==================================================
+21. DOKUMENTASI
+==================================================
+
+Update dokumentasi existing hanya jika diperlukan.
+
+Dokumentasikan bahwa:
+
+- provider baru masih ditambahkan melalui code/provider registry.
+- admin hanya dapat enable/disable provider.
+- Usage dan Backup/Restore adalah fitur utama.
+- provider credential tidak masuk backup.
+- Gorouter tidak digunakan dalam production verification.
+
+Jangan membuat banyak README baru.
+
+==================================================
+22. HASIL AKHIR
+==================================================
+
+Berikan laporan lengkap:
+
+1. Status Provider Registry
+2. Provider yang terdaftar
+3. Model yang ditemukan
+4. Status Enable/Disable
+5. Usage Tracking
+6. Usage Dashboard
+7. Usage Logs
+8. Backup
+9. Restore
+10. Security Audit
+11. NVIDIA test
+12. TokenHarbor.ai test
+13. Exact model ID yang dites
+14. HTTP status
+15. Token usage
+16. Latency
+17. Streaming
+18. npm run lint
+19. npm run build
+20. npm test
+21. jumlah pass/fail/skip
+22. status `models.test.ts`
+23. file yang berubah
+24. masalah yang masih tersisa.
+
+PENTING TERAKHIR:
+
+JANGAN MENAMBAHKAN FITUR BARU.
+
+Jangan membuat:
+- API Key Management
+- Client Management
+- Quota
+- Billing
+- Add Provider UI
+- Delete Provider UI
+- OAuth
+- Dynamic Provider CRUD
+- provider database baru
+- database usage baru.
+
+Fokus hanya menyelesaikan dan memastikan fitur existing:
+
+USAGE
++
+ENABLE/DISABLE PROVIDER
++
+BACKUP/RESTORE
+
+Provider baru tetap melalui CODE/provider registry.
+
+NVIDIA dan TokenHarbor.ai adalah provider untuk verification.
+
+GOROUTER.APP SAMA SEKALI JANGAN DIGUNAKAN.
 
 ```
 
