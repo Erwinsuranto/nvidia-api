@@ -21,7 +21,432 @@
 ```
 
 
+Implementasikan dan perbaiki fitur TOKEN COST / USD COST pada project `nvidia-api`.
 
+MASALAH SAAT INI:
+Dashboard sudah memiliki card:
+
+EST. COST (TOTAL)
+$0
+
+Tetapi cost selalu `$0`.
+
+Yang diinginkan:
+- setiap request memiliki cost sendiri berdasarkan token request tersebut
+- Logs menampilkan cost per request
+- Dashboard menjumlahkan cost dari seluruh request individual
+- jangan mengambil token kumulatif/session dari OpenCode
+- jangan menghitung ulang berdasarkan hasil token yang terus bertambah
+- jangan menggunakan angka cost palsu
+
+CONTOH HASIL UI:
+
+LOGS:
+
+Provider: tokenharbor
+Model: deepseek-v4-flash:free
+Prompt: 120.895
+Completion: 220
+Total: 121.115
+Cost: $0.001
+
+DASHBOARD:
+
+Prompt Tokens: 20.617.868
+Completion Tokens: 106.652
+Total Tokens: 20.724.520
+Estimated Cost (Total): $0.001
+
+Jika terdapat banyak request, contoh:
+
+Request #1 → $0.001
+Request #2 → $0.002
+Request #3 → $0.001
+
+Dashboard:
+Estimated Cost (Total) = $0.004
+
+==================================================
+1. COST HARUS PER REQUEST
+==================================================
+
+Setiap Usage Record harus memiliki field cost yang dihitung hanya dari token request tersebut.
+
+Gunakan:
+
+cost =
+(prompt_tokens / 1,000,000 × input_price_per_1m)
++
+(completion_tokens / 1,000,000 × output_price_per_1m)
+
+Jangan menggunakan:
+- cumulative token
+- session token
+- token dari OpenCode
+- token dari request sebelumnya
+- running total yang berasal dari upstream session.
+
+Cost harus immutable untuk record request tersebut setelah usage final diketahui.
+
+==================================================
+2. PRICING PER PROVIDER + MODEL
+==================================================
+
+Buat pricing registry/configuration yang terstruktur berdasarkan:
+
+provider + exact model ID
+
+Contoh konsep:
+
+provider: tokenharbor
+model: deepseek-v4-flash:free
+inputPricePer1M: ...
+outputPricePer1M: ...
+
+provider: nvidia
+model: exact-model-id
+inputPricePer1M: ...
+outputPricePer1M: ...
+
+Jangan menganggap semua provider/model mempunyai harga yang sama.
+
+Jangan hardcode satu harga global untuk seluruh provider.
+
+Gunakan exact model ID yang tercatat pada Usage Record.
+
+==================================================
+3. JIKA HARGA BELUM TERSEDIA
+==================================================
+
+Jika provider/model belum mempunyai pricing:
+
+- jangan mengarang harga
+- jangan menganggap harga = $0
+- jangan menampilkan cost palsu
+
+Tampilkan:
+
+Cost: N/A
+
+dan dashboard hanya menjumlahkan record yang memang memiliki cost valid.
+
+Namun buat struktur pricing agar harga dapat ditambahkan dengan mudah tanpa mengubah sistem Usage Tracking.
+
+==================================================
+4. SIMPAN COST DI USAGE RECORD
+==================================================
+
+Tambahkan field:
+
+costUsd
+
+atau nama field yang konsisten dengan schema existing.
+
+Contoh:
+
+{
+  promptTokens: 120895,
+  completionTokens: 220,
+  totalTokens: 121115,
+  costUsd: 0.001
+}
+
+Pastikan cost berasal dari token request tersebut.
+
+Jangan menyimpan cost berdasarkan cumulative/session usage.
+
+==================================================
+5. LOGS
+==================================================
+
+Tambahkan kolom:
+
+COST
+
+Contoh:
+
+PROMPT | COMPLETION | TOTAL | COST
+
+120.895 | 220 | 121.115 | $0.001
+
+Format USD:
+
+- gunakan `$0.001`
+- jangan tampilkan `$0`
+- jangan membulatkan cost kecil menjadi `$0`
+- gunakan precision yang cukup untuk micro-cost.
+
+Jika cost sangat kecil, tetap tampilkan nilai yang bermakna.
+
+Gunakan formatting yang konsisten, misalnya:
+
+$0.001
+$0.002
+$0.015
+$1.234
+
+Jangan kehilangan precision karena pembulatan terlalu awal.
+
+PENTING:
+Lakukan perhitungan menggunakan angka penuh terlebih dahulu.
+Pembulatan hanya dilakukan saat formatting UI.
+
+==================================================
+6. DASHBOARD
+==================================================
+
+Card:
+
+EST. COST (TOTAL)
+
+harus dihitung:
+
+SUM(costUsd dari setiap usage record valid)
+
+Bukan:
+
+totalTokens × harga
+
+jika `totalTokens` tersebut berasal dari agregasi yang berpotensi cumulative.
+
+Dashboard harus menjumlahkan cost masing-masing record.
+
+Contoh:
+
+record 1 = $0.001
+record 2 = $0.002
+record 3 = $0.001
+
+Dashboard = $0.004
+
+==================================================
+7. PROVIDER USAGE
+==================================================
+
+Pada Provider Usage tambahkan:
+
+Cost (USD)
+
+Contoh:
+
+Provider | Requests | Tokens | Cost
+
+tokenharbor | 100 | 1,234,567 | $0.123
+
+nvidia | 50 | 500,000 | $0.050
+
+Cost provider = SUM(costUsd dari request provider tersebut).
+
+==================================================
+8. MODEL USAGE
+==================================================
+
+Pada Model Usage tambahkan:
+
+Cost (USD)
+
+Cost dihitung dari request individual model tersebut.
+
+Jangan mencampur model berbeda.
+
+==================================================
+9. TOKEN NULL
+==================================================
+
+Jika usage provider:
+
+promptTokens = null
+completionTokens = null
+totalTokens = null
+
+maka:
+
+costUsd = null
+
+Jangan mengestimasi cost.
+
+Jika hanya sebagian token tersedia dan pricing tidak memungkinkan perhitungan yang valid:
+
+costUsd = null
+
+==================================================
+10. STREAMING
+==================================================
+
+Pertahankan behavior streaming yang sudah benar.
+
+Jika final streaming usage tersedia:
+→ hitung cost dari usage final tersebut.
+
+Jika streaming usage tetap null:
+→ costUsd = null
+
+Jangan mengestimasi token atau cost.
+
+Jangan membuat logging memutus stream.
+
+==================================================
+11. OPENAI/OPENCODE CUMULATIVE TOKEN BUG
+==================================================
+
+Ini SANGAT PENTING.
+
+Pastikan cost tidak ikut membesar karena hasil cumulative dari OpenCode/session.
+
+Setiap request harus diproses secara independen.
+
+Contoh jika upstream memberikan:
+
+Request 1:
+prompt = 100
+completion = 20
+
+Request 2:
+prompt = 150
+completion = 30
+
+Maka:
+
+Request 1 cost = berdasarkan 100 + 20
+Request 2 cost = berdasarkan 150 + 30
+
+BUKAN:
+
+Request 2 menggunakan 250 + 50.
+
+Jangan membaca total cumulative dari session sebagai usage request individual.
+
+==================================================
+12. BACKWARD COMPATIBILITY
+==================================================
+
+Usage record lama yang belum mempunyai `costUsd`:
+
+- jangan rusak
+- jangan mengarang cost historical
+- boleh tampil `N/A`
+
+Cost baru dihitung mulai dari request yang sudah mempunyai usage valid setelah fitur ini aktif.
+
+==================================================
+13. TESTING
+==================================================
+
+Tambahkan test:
+
+1. cost request individual benar
+2. input pricing benar
+3. output pricing benar
+4. total cost benar
+5. multiple request tidak cumulative
+6. dashboard SUM cost benar
+7. provider SUM cost benar
+8. model SUM cost benar
+9. null token menghasilkan null cost
+10. streaming usage menghasilkan cost jika tersedia
+11. streaming usage null menghasilkan null cost
+12. cost tidak berasal dari OpenCode cumulative token
+13. cost precision tidak berubah karena formatting UI
+14. record lama tanpa cost tetap dapat dibaca.
+
+Gunakan contoh test:
+
+Request A:
+prompt = 1000
+completion = 500
+
+Request B:
+prompt = 2000
+completion = 1000
+
+Pastikan B dihitung berdasarkan:
+2000 + 1000
+
+dan B TIDAK dihitung berdasarkan:
+3000 + 1500.
+
+==================================================
+14. UI FORMAT
+==================================================
+
+Dashboard:
+
+EST. COST (TOTAL)
+$0.001
+
+Logs:
+
+COST
+$0.001
+
+Jangan tampilkan:
+
+$0
+
+untuk cost yang sebenarnya non-zero.
+
+Jika cost benar-benar 0 karena pricing gratis:
+$0.000
+
+Jika pricing tidak tersedia:
+N/A
+
+==================================================
+15. VALIDASI AKHIR
+==================================================
+
+Setelah implementasi:
+
+- npm run lint
+- npm run build
+- npm test
+
+Jalankan test usage/cost yang relevan.
+
+Audit source code untuk memastikan tidak ada lagi cost calculation yang membaca cumulative/session token dari OpenCode.
+
+Pastikan:
+
+Usage Record
+→ token request individual
+→ pricing provider/model
+→ costUsd request individual
+→ Logs menampilkan cost
+→ Provider Usage menjumlahkan cost
+→ Model Usage menjumlahkan cost
+→ Dashboard menjumlahkan cost.
+
+Jangan merusak:
+- Provider Management
+- Model Registry
+- Usage Tracking
+- Usage Logs
+- Dashboard
+- Enable/Disable Provider
+- Streaming
+- Backup/Restore
+- API endpoint existing.
+
+Jangan membuat mock provider.
+Jangan mengarang harga.
+Jangan mengarang token.
+Jangan menggunakan cumulative token dari OpenCode.
+Jangan melakukan refactor besar yang tidak diperlukan.
+
+SETELAH SELESAI:
+Laporkan:
+- pricing registry yang digunakan
+- contoh cost per request
+- contoh cost di Logs
+- hasil Dashboard Estimated Cost
+- hasil Provider Usage
+- hasil Model Usage
+- bagaimana cumulative OpenCode dicegah
+- test pass/fail
+- lint
+- build
+- file yang diubah
+- masalah yang masih tersisa.
 ```
 # 
 ```
