@@ -14,10 +14,187 @@
 
 
 ```
-# 
+# Prompt: Fix Gorouter Cost Calculation
 ```
 
+PERBAIKI MASALAH COST CALCULATION PADA PROJECT `nvidia-api`.
 
+HASIL AUDIT:
+Usage record nyata sudah memiliki:
+- provider = `gorouter`
+- model = `claude-opus-4-8`
+- promptTokens tersedia
+- completionTokens tersedia
+- totalTokens tersedia
+- tetapi costUsd = null
+
+PENYEBAB:
+`src/lib/pricing.ts` melakukan exact lookup berdasarkan:
+provider + model
+
+Saat ini belum ada pricing key:
+`gorouter/claude-opus-4-8`
+
+Akibatnya model price tidak ditemukan dan costUsd menjadi null.
+
+TUJUAN:
+Buat cost calculation untuk Gorouter bekerja berdasarkan exact provider + model tanpa merusak model/provider lain.
+
+1. PRICING
+
+Tambahkan entry:
+
+`gorouter/claude-opus-4-8`
+
+dengan:
+- inputPerM = 5
+- outputPerM = 25
+
+Harga tersebut adalah harga list standar Claude Opus 4.8:
+$5 per 1M input tokens
+$25 per 1M output tokens.
+
+2. JANGAN MENGUBAH ARSITEKTUR
+
+Pertahankan:
+- `PRICING_REGISTRY`
+- `getModelPrice()`
+- `computeCostUsd()`
+- `costForRecord()`
+
+Jangan membuat pricing system kedua.
+
+3. PROVIDER LAIN
+
+Jangan memberikan default price global untuk semua model Gorouter.
+
+Pricing harus tetap exact:
+`provider/model`
+
+Jangan membuat:
+`gorouter/*`
+
+Karena model berbeda dapat memiliki harga berbeda.
+
+4. HISTORICAL USAGE RECORDS
+
+PENTING:
+
+Record lama seperti:
+
+provider = gorouter
+model = claude-opus-4-8
+costUsd = null
+
+harus dapat dihitung ulang menggunakan pricing baru jika:
+- token tersedia
+- costUsd masih null
+
+Jangan mengubah record yang sudah memiliki costUsd valid.
+
+Jangan mengubah:
+- promptTokens
+- completionTokens
+- totalTokens
+- timestamp
+- provider
+- model
+
+Hanya hitung costUsd jika memang sebelumnya belum tersedia.
+
+5. COST FORMULA
+
+Gunakan:
+
+(promptTokens * inputPerM / 1,000,000)
++
+(completionTokens * outputPerM / 1,000,000)
+
+Jangan menggunakan totalTokens sebagai input price.
+
+6. VALIDASI CONTOH
+
+Untuk record:
+
+promptTokens = 88,183
+completionTokens = 234
+
+cost:
+
+(88183 × 5 / 1,000,000)
++
+(234 × 25 / 1,000,000)
+
+Harus menghasilkan:
+
+$0.447835
+
+Jangan membulatkan nilai yang disimpan di UsageRecord.
+Pembulatan hanya pada tampilan UI.
+
+7. DASHBOARD
+
+Pastikan hasil cost muncul konsisten pada:
+
+- `/admin/usage`
+- `/admin/usage/providers`
+- `/admin/usage/models`
+- `/admin/usage/records`
+- `/admin/logs`
+
+Total cost juga harus ikut terakumulasi dengan benar.
+
+8. TEST
+
+Tambahkan test khusus:
+
+- gorouter + claude-opus-4-8 menemukan pricing
+- cost calculation dengan token nyata
+- cost zero tetap valid jika memang harga $0
+- unknown provider/model tetap menghasilkan null
+- historical record dengan costUsd null dapat dihitung ulang
+- record dengan costUsd yang sudah ada tidak ditimpa
+- input/output token tidak berubah
+- provider/model tidak berubah
+
+9. REGRESSION
+
+Pastikan pricing yang sudah ada tetap bekerja.
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+Jangan mengubah test hanya agar lulus.
+
+10. JANGAN
+
+- Jangan membuat mock usage.
+- Jangan mengarang token.
+- Jangan mengubah token yang tersimpan.
+- Jangan mengubah provider/model.
+- Jangan membuat default pricing untuk semua Gorouter.
+- Jangan membuat database baru.
+- Jangan refactor besar.
+- Jangan menghapus data Usage.
+- Jangan menghapus historical records.
+
+SETELAH SELESAI:
+
+Laporkan:
+- file yang diubah
+- pricing Gorouter yang ditambahkan
+- hasil perhitungan contoh
+- apakah historical costUsd null berhasil di-backfill
+- hasil `/admin/usage`
+- hasil `/admin/usage/providers`
+- hasil `/admin/usage/models`
+- lint
+- build
+- test
+- masalah yang masih tersisa.
 
 ```
 # Real Cost Calculation
