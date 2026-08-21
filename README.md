@@ -20,9 +20,374 @@
 
 
 ```
-# 
+# Real Cost Calculation
 ```
+Prompt: Real Usage Cost Calculation
 
+Lanjutkan implementasi project `nvidia-api`.
+
+KONDISI SAAT INI:
+- Usage Tracking sudah berjalan.
+- Real request sudah menghasilkan usage token.
+- Dashboard sudah menampilkan:
+  - Total requests
+  - Successful
+  - Errors
+  - Blocked
+  - Total tokens
+- Saat ini Total Tokens sudah terisi nyata, contoh:
+  87,948,548 tokens
+- Tetapi `EST. COST (TOTAL)` masih `$0`.
+
+TUJUAN:
+Hubungkan usage token nyata dengan pricing engine sehingga cost benar-benar dihitung dan ditampilkan.
+
+JANGAN membuat usage tracking baru.
+JANGAN mengestimasi token.
+JANGAN membuat angka cost palsu.
+
+1. AUDIT PRICING FLOW
+
+Audit source code existing:
+
+- src/lib/pricing.ts
+- src/lib/usage-store.ts
+- src/lib/pipeline.ts
+- src/services/provider.ts
+- src/services/stream-usage.ts
+- src/routes/admin.ts
+- src/admin/dashboard.ts
+- file lain yang benar-benar terlibat dalam pricing/usage.
+
+Cari penyebab kenapa:
+
+total tokens > 0
+
+tetapi:
+
+estimated cost = $0
+
+Kemungkinan yang harus diaudit:
+- pricing lookup tidak menemukan provider/model
+- model ID tidak cocok
+- provider ID tidak cocok
+- pricing hanya menghitung jika harga tersedia
+- usage record belum menyimpan cost
+- aggregation cost belum menjumlahkan cost
+- dashboard membaca field cost yang salah
+- input/output token null pada record tertentu
+- cost default 0 menutupi pricing lookup failure.
+
+Jangan langsung menebak.
+Temukan root cause sebenarnya.
+
+2. REAL PRICING LOOKUP
+
+Pastikan pricing dihitung berdasarkan:
+
+provider
++
+exact model ID
++
+input tokens
++
+output tokens
+
+Gunakan pricing configuration yang sudah ada di project.
+
+Jangan membuat harga provider/model secara sembarangan.
+
+Jika exact model belum memiliki pricing:
+- jangan membuat harga palsu
+- tampilkan status pricing unavailable/unpriced
+- jangan menyamarkan sebagai `$0`.
+
+3. COST FORMULA
+
+Jika harga tersedia:
+
+inputCost =
+(inputTokens / pricingUnit) * inputPrice
+
+outputCost =
+(outputTokens / pricingUnit) * outputPrice
+
+totalCost =
+inputCost + outputCost
+
+Gunakan unit pricing yang benar sesuai struktur pricing existing.
+
+Jangan menganggap harga per token jika konfigurasi sebenarnya per 1K/1M token.
+
+4. REAL USAGE RECORD
+
+Setiap successful request yang memiliki usage nyata harus dapat menghasilkan:
+
+{
+  inputTokens,
+  outputTokens,
+  totalTokens,
+  inputCost,
+  outputCost,
+  totalCost
+}
+
+Jika provider tidak memberikan token usage:
+- token tetap null sesuai behavior existing
+- cost harus null/unpriced jika cost tidak dapat dihitung
+- jangan mengestimasi token
+- jangan menghasilkan cost palsu.
+
+5. EXISTING RECORD COMPATIBILITY
+
+Jangan merusak usage records lama.
+
+Jika record lama hanya memiliki:
+
+inputTokens
+outputTokens
+totalTokens
+
+tetapi belum memiliki cost:
+
+sediakan mekanisme safe recalculation/backfill hanya jika aman.
+
+Jangan mengubah historical data secara diam-diam tanpa alasan.
+
+Jika pricing saat ini tersedia untuk provider/model tersebut, cost historical dapat dihitung ulang dari token yang sudah tersimpan.
+
+6. DASHBOARD
+
+Perbaiki:
+
+`/admin/usage`
+
+agar:
+
+EST. COST (TOTAL)
+
+tidak lagi selalu `$0`.
+
+Dashboard harus menghitung dari usage records yang benar-benar memiliki cost.
+
+Tampilkan dengan precision yang cukup untuk nilai kecil.
+
+Jangan membulatkan terlalu awal.
+
+Contoh:
+Jika cost sebenarnya:
+
+0.000154
+
+jangan langsung menjadi:
+
+$0
+
+Gunakan precision yang tetap dapat menunjukkan nilai kecil.
+
+7. PROVIDER BREAKDOWN
+
+Pastikan:
+
+`/admin/usage/providers`
+
+menampilkan cost per provider:
+
+Provider
+Requests
+Input Tokens
+Output Tokens
+Total Tokens
+Estimated Cost
+
+8. MODEL BREAKDOWN
+
+Pastikan:
+
+`/admin/usage/models`
+
+menampilkan:
+
+Provider
+Model
+Requests
+Input Tokens
+Output Tokens
+Total Tokens
+Estimated Cost
+
+Cost harus dihitung dari exact provider + exact model.
+
+9. USAGE RECORDS
+
+Pastikan:
+
+`/admin/usage/records`
+
+menampilkan cost setiap request jika pricing tersedia.
+
+Minimal:
+
+Input Tokens
+Output Tokens
+Total Tokens
+Input Cost
+Output Cost
+Total Cost
+
+Jika pricing unavailable:
+tampilkan `N/A` atau status `Unpriced`, bukan `$0`.
+
+10. PROVIDER/MODEL NORMALIZATION
+
+Audit kemungkinan mismatch seperti:
+
+provider:
+`nvidia`
+
+vs
+
+`NVIDIA`
+
+atau model:
+
+`deepseek-ai/deepseek-v4-flash-0731`
+
+vs nama/model alias lainnya.
+
+Pricing lookup harus menggunakan canonical provider/model identifier yang memang digunakan runtime.
+
+Jangan membuat alias sembarangan.
+
+11. REAL COST TEST
+
+Tambahkan test yang menggunakan angka nyata tetapi deterministic.
+
+Contoh:
+
+inputTokens = 1000
+outputTokens = 500
+
+Dengan pricing configuration existing:
+
+expectedCost =
+inputCost + outputCost
+
+Pastikan hasil exact/precision benar.
+
+Test juga:
+
+- input only
+- output only
+- input + output
+- zero tokens
+- null usage
+- unknown provider
+- unknown model
+- pricing unavailable
+- very small cost
+- large token count
+- aggregation multiple records.
+
+12. REGRESSION
+
+Pastikan tidak merusak:
+
+- Provider Management
+- Enable/Disable Provider
+- Model Registry
+- /v1/models
+- API request
+- streaming
+- Usage Tracking
+- Usage Logs
+- Usage Dashboard
+- Backup/Restore.
+
+Jangan melakukan refactor besar.
+
+13. REAL DATA AUDIT
+
+Setelah implementasi, gunakan usage data yang SUDAH ADA.
+
+Jangan menghapus database/usage records.
+
+Hitung ulang aggregate cost dari existing usage records jika memungkinkan.
+
+Pastikan dashboard tidak lagi menampilkan `$0` hanya karena cost calculation belum terhubung.
+
+Bandingkan:
+
+Total token pada dashboard
+vs
+sum token usage records
+
+dan:
+
+Total cost
+vs
+sum calculated cost records.
+
+14. PRECISION
+
+Cost harus menggunakan precision aman.
+
+Jangan menggunakan integer untuk cost.
+
+Hindari floating-point rounding terlalu awal.
+
+Jika project sudah memiliki helper Decimal/precision, gunakan helper tersebut.
+
+15. SECURITY
+
+Pastikan pricing/cost implementation tidak menyebabkan:
+- API key masuk log
+- Authorization header tersimpan
+- credential provider terekspos.
+
+16. TESTING
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+Jangan menjalankan test/integration test Gorouter.app.
+
+Jangan mengubah test hanya supaya lulus.
+
+17. HASIL AKHIR
+
+Laporkan:
+
+1. Root cause kenapa Est. Cost sebelumnya `$0`.
+2. File yang diubah.
+3. Pricing lookup yang digunakan.
+4. Formula cost.
+5. Apakah cost tersimpan pada usage record.
+6. Apakah dashboard total cost sudah benar.
+7. Provider breakdown cost.
+8. Model breakdown cost.
+9. Historical usage apakah berhasil dihitung.
+10. Pricing unavailable behavior.
+11. Precision/rounding behavior.
+12. Test yang ditambahkan.
+13. npm run lint.
+14. npm run build.
+15. npm test.
+16. Jumlah pass/fail/skip.
+17. Regression yang ditemukan.
+
+PENTING:
+- Gunakan token usage NYATA yang sudah tersimpan.
+- Jangan mengarang token.
+- Jangan mengarang harga.
+- Jangan membuat provider/model dummy.
+- Jangan menghapus usage lama.
+- Jangan membuat `$0` sebagai fallback ketika pricing sebenarnya tidak ditemukan.
+- Jika pricing tidak tersedia, tampilkan `N/A/Unpriced` agar masalah terlihat jelas.
+- Jangan test Gorouter.app.
 
 
 ```
