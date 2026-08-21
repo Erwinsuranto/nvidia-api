@@ -1,14 +1,164 @@
 # nvidia-api
 
 
+# 
+```
 
 
 
+```
 
 # 
 ```
 
 
+
+```
+# 
+```
+
+
+
+```
+# 
+```
+
+
+
+```
+# Prompt — Real Usage & Cost Verification
+```
+
+Lanjutkan implementasi pricing pada project nvidia-api sampai REAL VERIFICATION.
+
+TUJUAN:
+Pastikan setiap request nyata menghitung biaya USD berdasarkan token request tersebut, bukan token kumulatif dari OpenCode/session.
+
+1. SIAPKAN ENVIRONMENT
+- Jika node_modules belum ada, install dependency yang diperlukan.
+- Jangan mengubah source hanya karena dependency belum tersedia.
+- Jalankan lint/build/test jika environment sudah siap.
+
+2. AUDIT PRICING
+Pastikan cost hanya berasal dari:
+promptTokens + completionTokens
+pada request tersebut.
+
+JANGAN:
+- membaca token kumulatif OpenCode
+- menjumlahkan usage session
+- menghitung token dari request sebelumnya
+- double counting
+- menggunakan estimasi token jika upstream menyediakan usage asli.
+
+3. REAL REQUEST TEST
+Jalankan server VPS2 dan lakukan minimal 3 request nyata menggunakan provider/model yang memang tersedia.
+
+Untuk setiap request catat:
+- request ID
+- provider
+- model
+- prompt tokens
+- completion tokens
+- total tokens
+- cost USD
+- latency
+
+Validasi:
+totalTokens = promptTokens + completionTokens
+
+4. COST VALIDATION
+Gunakan pricing configuration yang sudah dibuat.
+
+Untuk setiap request hitung secara independen:
+
+cost = (promptTokens × inputPricePerToken)
+     + (completionTokens × outputPricePerToken)
+
+Bandingkan hasil perhitungan manual dengan cost yang disimpan server.
+
+Harus sama sesuai precision/rounding yang ditentukan.
+
+5. DASHBOARD
+Buka /admin dan pastikan:
+- total tokens berasal dari seluruh record request
+- estimated cost USD adalah SUM cost masing-masing record
+- refresh halaman tidak menambah usage/cost
+- tidak ada token kumulatif OpenCode yang ikut dihitung.
+
+6. LOGS
+Buka /admin/logs.
+
+Setiap request sukses harus menampilkan:
+- prompt tokens
+- completion tokens
+- total tokens
+- cost USD
+
+Contoh format:
+Tokens: 3,000
+Cost: $0.001234
+
+Cost harus milik request tersebut, bukan total kumulatif.
+
+7. ANTI DOUBLE-COUNTING
+Lakukan:
+request A → catat token + cost
+request B → catat token + cost
+
+Pastikan:
+cost(A+B) = cost(A) + cost(B)
+
+Refresh dashboard/logs berkali-kali tidak boleh mengubah angka.
+
+8. PERSISTENCE
+Restart server.
+
+Setelah restart:
+- record tetap ada
+- token tetap sama
+- cost tetap sama
+- aggregate dashboard tetap sama.
+
+9. SECURITY
+Pastikan pricing/usage tidak menyimpan:
+- API key
+- Authorization header
+- provider secret
+- credential OpenCode.
+
+10. HASIL AKHIR
+Jangan berhenti pada unit test.
+
+WAJIB lakukan REAL REQUEST dan tampilkan laporan:
+
+Request #1:
+provider =
+model =
+promptTokens =
+completionTokens =
+totalTokens =
+costUsd =
+
+Request #2:
+...
+
+Request #3:
+...
+
+Kemudian tampilkan:
+- total request
+- total prompt tokens
+- total completion tokens
+- total tokens
+- total cost USD
+- apakah dashboard sesuai
+- apakah logs sesuai
+- apakah refresh aman
+- apakah restart aman
+- lint/build/test result.
+
+Jika ada perbedaan angka, JANGAN menutupinya. Cari sumber double counting/cumulative usage dan perbaiki penyebab sebenarnya.
 
 ```
 # 
