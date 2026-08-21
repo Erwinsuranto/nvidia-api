@@ -14,7 +14,889 @@
 # 
 ```
 
+Lakukan implementasi FINAL untuk fitur PRICING / ESTIMATED COST pada project `nvidia-api`.
 
+KONDISI PENTING:
+- Saya sedang mengerjakan project ini di VPS2.
+- VPS1 menjalankan production `nvidia-api` dan JANGAN disentuh.
+- Jangan melakukan deploy, restart, kill process, SSH, atau perubahan apa pun ke VPS1.
+- Semua perubahan dan testing hanya di VPS2.
+- Jangan menghapus data existing.
+- Jangan melakukan refactor besar.
+- Jangan mengubah sistem token accounting yang sudah benar.
+- Fokus pada pricing USD berdasarkan TOKEN PADA REQUEST INDIVIDUAL.
+
+TUJUAN UTAMA:
+
+Saya ingin setiap request memiliki:
+
+prompt_tokens
+completion_tokens
+total_tokens
+cost_usd
+
+Contoh satu request:
+
+prompt_tokens = 120000
+completion_tokens = 220
+total_tokens = 120220
+cost_usd = $0.123456
+
+Nilai cost harus dihitung HANYA dari token request tersebut.
+
+JANGAN:
+- mengambil token kumulatif dari OpenCode/session
+- menjumlahkan token dari request sebelumnya
+- menghitung ulang token berdasarkan dashboard
+- menggunakan cumulative/session token sebagai usage request
+- melakukan double counting
+- mengestimasi token jika upstream tidak memberikan usage
+
+==================================================
+1. AUDIT IMPLEMENTASI EXISTING TERLEBIH DAHULU
+==================================================
+
+Sebelum mengubah kode:
+
+Audit source code yang berhubungan dengan:
+
+- usage
+- usage-store
+- provider
+- provider pricing
+- model pricing
+- response parsing
+- extractUsageFromResult
+- streaming usage
+- dashboard
+- logs
+- `/admin/usage`
+- `/admin/logs`
+- cost/price jika sudah ada
+
+Cari terutama:
+
+- `src/lib/usage-store.ts`
+- `src/lib/pricing.ts`
+- `src/services/provider.ts`
+- `src/services/team-usage.ts`
+- `src/providers/agentrouter/response.ts`
+- `src/admin/dashboard.ts`
+- `src/admin/index.html`
+- seluruh code yang menghitung `promptTokens`
+- seluruh code yang menghitung `completionTokens`
+- seluruh code yang menghitung `totalTokens`
+
+Jangan langsung mengubah code.
+
+Pertama pahami alur:
+
+UPSTREAM RESPONSE
+→ extract usage
+→ individual usage record
+→ pricing
+→ cost_usd
+→ Logs
+→ Dashboard aggregation
+
+Pastikan pricing ditempatkan pada titik yang tepat.
+
+==================================================
+2. SUMBER TOKEN WAJIB INDIVIDUAL REQUEST
+==================================================
+
+Untuk setiap request:
+
+prompt_tokens
+completion_tokens
+total_tokens
+
+harus berasal dari usage response request tersebut.
+
+Jika upstream memberikan:
+
+usage.prompt_tokens
+usage.completion_tokens
+usage.total_tokens
+
+gunakan nilai tersebut.
+
+Validasi:
+
+total_tokens === prompt_tokens + completion_tokens
+
+Jika provider memberikan total_tokens yang berbeda:
+- jangan diam-diam mengubah nilai
+- simpan nilai upstream sesuai policy existing
+- tampilkan discrepancy hanya jika diperlukan untuk debugging
+- jangan melakukan double counting.
+
+PENTING:
+
+Jangan pernah menggunakan:
+- session token
+- cumulative token
+- OpenCode accumulated token
+- dashboard total
+- previous request usage
+
+untuk menentukan `cost_usd` sebuah request.
+
+==================================================
+3. STRUKTUR COST PER REQUEST
+==================================================
+
+Tambahkan field persistent:
+
+`cost_usd`
+
+pada usage record jika belum ada.
+
+Idealnya setiap record memiliki:
+
+{
+  promptTokens,
+  completionTokens,
+  totalTokens,
+  costUsd
+}
+
+Gunakan naming convention existing jika project sudah mempunyai field pricing yang berbeda.
+
+Cost harus disimpan sebagai nilai numerik yang aman untuk perhitungan.
+
+Jangan menggunakan string seperti:
+
+"$0.001"
+
+untuk storage.
+
+Storage harus berupa number.
+
+UI boleh menampilkan:
+
+`$0.001000`
+
+==================================================
+4. PRICING MODEL
+==================================================
+
+Buat pricing berdasarkan:
+
+provider + model
+
+Contoh konsep:
+
+{
+  provider: "tokenharbor",
+  model: "deepseek-v4-flash:free",
+  inputPricePer1M: 0,
+  outputPricePer1M: 0
+}
+
+Formula:
+
+inputCost =
+(prompt_tokens / 1,000,000) * inputPricePer1M
+
+outputCost =
+(completion_tokens / 1,000,000) * outputPricePer1M
+
+costUsd =
+inputCost + outputCost
+
+Jangan menggunakan total_tokens langsung jika pricing input/output berbeda.
+
+Jika pricing model gratis:
+
+inputPricePer1M = 0
+outputPricePer1M = 0
+
+maka:
+
+costUsd = 0
+
+==================================================
+5. PRICING HARUS MODEL-SPECIFIC
+==================================================
+
+Jangan menggunakan satu harga global untuk semua model.
+
+Pricing harus dapat dibedakan:
+
+provider
+→ model
+→ input price
+→ output price
+
+Contoh:
+
+provider A / model X
+input = ...
+output = ...
+
+provider A / model Y
+input = ...
+output = ...
+
+provider B / model X
+input = ...
+output = ...
+
+Jika pricing belum tersedia untuk suatu provider/model:
+
+JANGAN mengarang harga.
+
+Gunakan:
+
+costUsd = null
+
+dan tandai sebagai:
+
+pricing unavailable
+
+Jangan menganggap model gratis hanya karena harga belum dikonfigurasi.
+
+==================================================
+6. PRESISI USD
+==================================================
+
+Jangan membulatkan cost terlalu awal.
+
+Contoh:
+
+cost internal:
+0.000873421
+
+UI:
+$0.000873
+
+atau gunakan precision yang konsisten.
+
+Dashboard harus menggunakan nilai internal penuh untuk SUM.
+
+Jangan:
+
+request 1 → round
+request 2 → round
+request 3 → round
+kemudian SUM
+
+Lebih aman:
+
+SUM raw cost
+→ format untuk display.
+
+==================================================
+7. LOGS
+==================================================
+
+Pada halaman `/admin/logs`, tambahkan kolom:
+
+COST
+
+Contoh:
+
+PROMPT     COMPLETION     TOTAL       COST
+120,895    220            121,115     $0.001234
+
+Pastikan cost berasal dari record request tersebut.
+
+Jika token null:
+
+PROMPT = —
+COMPLETION = —
+TOTAL = —
+COST = —
+
+atau `$0.00` hanya jika pricing/token policy existing memang mendefinisikan demikian.
+
+Jangan menghitung cost dari dashboard.
+
+==================================================
+8. DASHBOARD
+==================================================
+
+Pada `/admin` / Overview tambahkan:
+
+EST. COST (TOTAL)
+
+Contoh:
+
+$0.123456
+
+Nilai ini harus:
+
+SUM(costUsd dari individual usage records)
+
+BUKAN:
+
+harga berdasarkan total token dashboard secara terpisah.
+
+Tujuannya mencegah perbedaan:
+
+SUM(request cost)
+vs
+calculate(total dashboard tokens)
+
+Keduanya secara matematis bisa berbeda jika:
+- pricing berbeda antar model
+- provider berbeda
+- model berbeda
+- sebagian request pricing unavailable
+
+Karena itu source of truth:
+
+`SUM(individual record.costUsd)`
+
+==================================================
+9. PROVIDER USAGE
+==================================================
+
+Pada Provider Usage:
+
+tampilkan:
+
+Provider
+Requests
+Prompt Tokens
+Completion Tokens
+Total Tokens
+Cost USD
+
+Contoh:
+
+TokenHarbor
+Requests: 100
+Prompt: 1,000,000
+Completion: 20,000
+Total: 1,020,000
+Cost: $0.123456
+
+Cost harus merupakan:
+
+SUM(costUsd WHERE provider = provider)
+
+==================================================
+10. MODEL USAGE
+==================================================
+
+Pada Model Usage:
+
+tampilkan:
+
+Provider
+Model
+Requests
+Prompt Tokens
+Completion Tokens
+Total Tokens
+Cost USD
+
+Cost:
+
+SUM(individual costUsd)
+
+berdasarkan:
+
+provider + model
+
+==================================================
+11. FILTER DAN LOGS
+==================================================
+
+Jika Logs difilter berdasarkan:
+
+provider
+model
+status
+date range
+
+cost harus ikut mengikuti filter.
+
+Contoh:
+
+All:
+$10.00
+
+Provider NVIDIA:
+$3.00
+
+Provider TokenHarbor:
+$7.00
+
+Jangan menampilkan total global ketika user sedang memfilter record.
+
+==================================================
+12. ERROR / BLOCKED REQUEST
+==================================================
+
+Request:
+
+SUCCESS
+→ boleh memiliki token + cost jika usage tersedia.
+
+UPSTREAM ERROR
+→ gunakan usage hanya jika upstream benar-benar memberikannya.
+
+BLOCKED
+→ biasanya:
+
+promptTokens = null
+completionTokens = null
+totalTokens = null
+costUsd = null
+
+Jangan membebankan biaya kepada request yang tidak pernah diteruskan upstream.
+
+INVALID MODEL
+→ tidak boleh dihitung sebagai paid inference.
+
+PROVIDER DISABLED
+→ tidak boleh dihitung sebagai paid inference.
+
+==================================================
+13. STREAMING
+==================================================
+
+Untuk streaming:
+
+Jika final SSE chunk memberikan usage:
+
+gunakan usage tersebut.
+
+Jika usage tersedia:
+
+promptTokens
+completionTokens
+totalTokens
+costUsd
+
+dicatat.
+
+Jika upstream streaming memberikan:
+
+usage: null
+
+maka:
+
+promptTokens = null
+completionTokens = null
+totalTokens = null
+costUsd = null
+
+JANGAN:
+- mengambil cumulative session token
+- membaca token dari OpenCode
+- menjumlahkan request sebelumnya
+- melakukan estimasi
+- membuat cost palsu
+
+Streaming tidak boleh rusak hanya karena pricing.
+
+==================================================
+14. ANTI DOUBLE COUNTING
+==================================================
+
+Ini WAJIB.
+
+Satu request hanya boleh menghasilkan:
+
+SATU usage record.
+
+Pastikan tidak ada:
+
+upstream usage
++
+stream usage
++
+dashboard usage
+
+yang disimpan sebagai tiga record.
+
+Pastikan:
+
+request ID / trace ID
+
+digunakan jika tersedia untuk memastikan satu request tidak dicatat dua kali.
+
+Jika `recordUsageFor()` dipanggil lebih dari sekali untuk lifecycle request yang sama:
+
+gunakan mekanisme existing atau tambahkan guard yang aman agar tidak terjadi duplicate usage.
+
+Jangan mengubah behavior request utama.
+
+==================================================
+15. ANTI CUMULATIVE OPENCODE TOKEN
+==================================================
+
+Audit seluruh code pricing dan usage.
+
+Pastikan tidak ada pola seperti:
+
+previousTokens + currentTokens
+
+atau:
+
+sessionTokens
+
+atau:
+
+cumulativeUsage
+
+yang digunakan sebagai token individual request.
+
+Contoh:
+
+Request #1:
+100,000 prompt
+200 completion
+cost dihitung dari 100,200
+
+Request #2:
+80,000 prompt
+300 completion
+cost dihitung dari 80,300
+
+Request #2 TIDAK BOLEH menjadi:
+
+180,500
+
+karena token request #1 sudah pernah dihitung.
+
+Setiap request berdiri sendiri.
+
+==================================================
+16. PRICING CONFIGURATION
+==================================================
+
+Buat pricing configuration yang mudah diperluas.
+
+Contoh struktur:
+
+pricing:
+  provider
+    model
+      inputPricePer1M
+      outputPricePer1M
+      currency
+
+Gunakan struktur project yang paling sesuai.
+
+Jangan hardcode pricing di UI.
+
+UI harus membaca cost dari backend.
+
+Jika project sudah memiliki `src/lib/pricing.ts`:
+gunakan dan perbaiki file tersebut daripada membuat pricing system kedua.
+
+Jangan membuat dua sumber pricing.
+
+==================================================
+17. CURRENCY
+==================================================
+
+Currency internal:
+
+USD
+
+UI:
+
+`$0.001234`
+
+Jangan menggunakan kurs Rupiah.
+
+Jangan melakukan konversi IDR.
+
+Pricing provider diasumsikan USD kecuali konfigurasi secara eksplisit menyatakan currency lain.
+
+==================================================
+18. API / BACKEND
+==================================================
+
+Pastikan endpoint admin mengembalikan:
+
+costUsd
+
+pada:
+
+- usage summary
+- provider usage
+- model usage
+- usage records
+- logs
+
+Jangan menghitung cost di frontend berdasarkan token.
+
+Frontend hanya menampilkan nilai cost dari backend.
+
+Ini penting supaya:
+
+Dashboard
+Logs
+Provider Usage
+Model Usage
+
+menggunakan source of truth yang sama.
+
+==================================================
+19. TEST WAJIB
+==================================================
+
+Tambahkan regression test untuk:
+
+TEST 1:
+Request A:
+1000 prompt
+500 completion
+
+pricing:
+input = $1 / 1M
+output = $2 / 1M
+
+Expected:
+
+cost =
+(1000 / 1M * 1)
++
+(500 / 1M * 2)
+
+TEST 2:
+Request B:
+2000 prompt
+100 completion
+
+Pastikan cost B dihitung hanya dari B.
+
+TEST 3:
+A + B
+
+Pastikan:
+
+dashboard cost
+=
+cost A + cost B
+
+TEST 4:
+Simulasikan cumulative/session token.
+
+Pastikan cumulative token TIDAK mempengaruhi cost individual.
+
+TEST 5:
+Streaming usage null.
+
+Expected:
+
+costUsd = null
+
+TEST 6:
+Streaming usage tersedia.
+
+Expected:
+
+costUsd dihitung dari usage streaming tersebut.
+
+TEST 7:
+Provider disabled.
+
+Expected:
+
+costUsd = null
+
+TEST 8:
+Invalid model.
+
+Expected:
+
+costUsd = null
+
+TEST 9:
+Pricing unavailable.
+
+Expected:
+
+costUsd = null
+
+TEST 10:
+Free model.
+
+Expected:
+
+costUsd = 0
+
+TEST 11:
+Duplicate `recordUsageFor()` untuk request ID yang sama.
+
+Expected:
+
+hanya satu usage record.
+
+TEST 12:
+Dashboard aggregation.
+
+Pastikan:
+
+SUM(record.costUsd)
+=
+dashboard total cost
+
+TEST 13:
+Provider aggregation.
+
+Pastikan:
+
+SUM(cost per provider)
+=
+global cost
+
+TEST 14:
+Model aggregation.
+
+Pastikan:
+
+SUM(cost per model)
+=
+global cost
+
+==================================================
+20. SECURITY
+==================================================
+
+Pricing implementation tidak boleh:
+- menyimpan API key
+- menyimpan Authorization header
+- membocorkan credential
+- menyimpan secret
+- memasukkan secret ke backup
+
+Audit juga backup supaya `costUsd` boleh masuk backup tetapi credential tetap tidak.
+
+==================================================
+21. BUILD & VALIDATION
+==================================================
+
+Setelah implementasi:
+
+jalankan jika environment memungkinkan:
+
+npm run lint
+npm run build
+npm test
+
+Jika dependency/environment VPS2 belum lengkap:
+
+- jangan mengarang hasil
+- laporkan command yang gagal
+- jelaskan bahwa failure disebabkan environment
+- tetap lakukan static/code audit yang memungkinkan.
+
+JANGAN menyentuh VPS1.
+
+JANGAN restart VPS1.
+
+==================================================
+22. FINAL VERIFICATION
+==================================================
+
+Buat test nyata/internal dengan minimal 3 request:
+
+Request #1:
+usage individual tertentu
+
+Request #2:
+usage individual berbeda
+
+Request #3:
+usage individual berbeda
+
+Verifikasi:
+
+Logs:
+request #1 → cost #1
+request #2 → cost #2
+request #3 → cost #3
+
+Dashboard:
+
+cost total
+=
+cost #1 + cost #2 + cost #3
+
+Kemudian refresh dashboard.
+
+Pastikan angka tidak berubah hanya karena refresh.
+
+Kemudian buat request ke model/provider berbeda jika tersedia.
+
+Pastikan pricing mengikuti provider + model.
+
+==================================================
+23. ACCEPTANCE CRITERIA
+==================================================
+
+IMPLEMENTASI DIANGGAP BERHASIL JIKA:
+
+1. Setiap request memiliki cost individual jika pricing + usage tersedia.
+2. Cost tidak berasal dari token kumulatif OpenCode.
+3. Tidak ada double counting.
+4. Logs menampilkan cost per request.
+5. Dashboard menampilkan total cost.
+6. Provider Usage menampilkan cost provider.
+7. Model Usage menampilkan cost model.
+8. Filter Logs memfilter cost dengan benar.
+9. Streaming usage null tidak menghasilkan cost palsu.
+10. Provider disabled tidak menghasilkan cost.
+11. Invalid model tidak menghasilkan cost.
+12. Pricing unavailable menghasilkan null.
+13. Free model menghasilkan $0.
+14. Dashboard total = SUM individual request cost.
+15. Pricing input/output dapat berbeda per model.
+16. Semua cost menggunakan USD.
+17. Frontend tidak menghitung ulang pricing.
+18. Tidak ada credential/secret yang bocor.
+19. Existing token accounting tidak rusak.
+20. VPS1 TIDAK disentuh.
+
+==================================================
+HASIL AKHIR
+==================================================
+
+Laporkan secara ringkas:
+
+- File yang diubah
+- Source of truth pricing
+- Struktur pricing
+- Formula cost
+- Contoh cost request
+- Status Logs
+- Status Dashboard
+- Provider Usage
+- Model Usage
+- Streaming
+- Anti cumulative token
+- Anti double counting
+- Test result
+- lint result
+- build result
+- masalah environment jika ada
+
+PENTING TERAKHIR:
+
+JANGAN:
+- menyentuh VPS1
+- restart VPS1
+- mengubah production VPS1
+- mengambil token cumulative OpenCode
+- menghitung cost dari dashboard token
+- membuat pricing kedua/duplikat
+- mengarang harga model
+- mengarang token
+- mengestimasi token
+- membuat mock provider
+- menghapus data existing
+- melakukan refactor besar.
+
+Fokus hanya pada pricing USD yang aman, akurat, per-request, dan tidak kumulatif.
 
 ```
 # 
