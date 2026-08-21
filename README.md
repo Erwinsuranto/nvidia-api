@@ -8,9 +8,234 @@
 
 ```
 
-# 
+# Prompt: Final Cost Verification & Runtime Consistency Audit
 ```
+Lakukan FINAL VERIFICATION pada project `nvidia-api`.
 
+JANGAN langsung mengubah source code.
+
+Kondisi saat ini:
+- npm run lint = PASS
+- npm run build = PASS
+- npm test = 455 passed, 20 skipped, 0 failed
+- usage-store.ts sudah memiliki historical cost backfill
+- cost-display.test.ts sudah diperbarui
+- beberapa record Gorouter/Claude Opus 4.8 masih perlu diverifikasi costUsd-nya di runtime/admin dashboard.
+
+TUJUAN:
+Pastikan costUsd yang dihitung oleh aplikasi benar-benar sama dengan data Usage yang tersimpan dan yang ditampilkan Admin Dashboard.
+
+1. AUDIT PRICING
+
+Cari exact pricing entry untuk:
+
+provider:
+gorouter
+
+model:
+claude-opus-4-8
+
+Pastikan pricing yang digunakan runtime adalah:
+
+input = $5 / 1M tokens
+output = $25 / 1M tokens
+
+Jangan membuat pricing kedua/duplikat.
+
+2. VERIFIKASI RECORD NYATA
+
+Baca data Usage yang benar-benar digunakan runtime.
+
+Cari minimal beberapa record:
+
+provider = gorouter
+model = claude-opus-4-8
+
+Untuk setiap record catat:
+
+promptTokens
+completionTokens
+totalTokens
+costUsd
+
+JANGAN mengubah record hanya untuk debugging.
+
+3. HITUNG MANUAL
+
+Untuk setiap record dengan costUsd null, hitung:
+
+cost =
+(promptTokens * 5 / 1,000,000)
++
+(completionTokens * 25 / 1,000,000)
+
+Bandingkan dengan hasil `costForRecord()` / `computeCostUsd()` yang sebenarnya digunakan aplikasi.
+
+Jangan membulatkan nilai internal.
+
+4. CONTOH DATA
+
+Untuk:
+
+promptTokens = 88183
+completionTokens = 234
+
+hasil yang benar adalah:
+
+88183 * 5 / 1,000,000
++
+234 * 25 / 1,000,000
+
+= 0.447835 USD
+
+Verifikasi apakah aplikasi menghasilkan angka yang sama.
+
+5. HISTORICAL BACKFILL
+
+Pastikan record lama dengan:
+
+costUsd = null
+
+dapat diperkaya secara in-memory sesuai behavior yang sudah dibuat.
+
+PENTING:
+- Jangan mengubah token.
+- Jangan mengubah provider.
+- Jangan mengubah model.
+- Jangan mengubah timestamp.
+- Jangan mengubah totalTokens.
+- Jangan menimpa costUsd yang sudah valid.
+- Jangan menulis hasil backfill ke disk jika arsitektur existing memang sengaja read-only/in-memory.
+
+Pastikan tidak ada fake `$0`.
+
+6. ADMIN DASHBOARD
+
+Periksa langsung endpoint/page yang digunakan:
+
+/admin/usage
+/admin/usage/providers
+/admin/usage/models
+/admin/usage/records
+/admin/logs
+
+Pastikan cost yang ditampilkan berasal dari data usage yang sama.
+
+Periksa:
+
+- total estimated cost
+- provider cost
+- model cost
+- individual record cost
+
+Pastikan tidak ada perbedaan antara API dan UI.
+
+7. STORAGE CONSISTENCY
+
+Audit:
+
+- lokasi `usage-records.json`
+- file/database/storage yang sebenarnya digunakan runtime
+- working directory process
+- environment/configuration yang menentukan storage path
+
+Pastikan aplikasi tidak membaca file Usage yang berbeda dari file yang sedang diaudit.
+
+Jangan membuat storage baru.
+
+8. PROCESS CONSISTENCY
+
+Periksa proses Node/PM2 yang menjalankan `nvidia-api`.
+
+Pastikan hanya instance yang memang diperlukan yang melayani port aplikasi.
+
+Jika ditemukan dua server process yang menggunakan storage/port berbeda:
+
+JANGAN langsung kill process.
+
+Identifikasi:
+- PID
+- command
+- working directory
+- port
+- PM2 process
+- environment/storage path
+
+Laporkan apakah ada risiko dashboard membaca instance/storage yang berbeda.
+
+Jangan melakukan destructive action.
+
+9. RUNTIME RESTART TEST
+
+Jika aman:
+
+- restart hanya instance `nvidia-api` yang memang digunakan production.
+- jangan menghapus Usage data.
+- setelah restart cek kembali:
+  - usage count
+  - gorouter/claude-opus-4-8 records
+  - costUsd
+  - admin dashboard
+
+Pastikan behavior tetap konsisten.
+
+10. NO CODE CHANGE IF ALREADY CORRECT
+
+Jika seluruh hasil benar:
+
+JANGAN mengubah source code.
+
+Laporkan bahwa implementation sudah benar dan masalah sebelumnya hanya masalah verification/runtime consistency.
+
+Jika ditemukan bug nyata:
+- ubah hanya bagian minimal yang diperlukan.
+- jangan refactor besar.
+- jalankan ulang lint/build/test.
+
+11. FINAL TEST
+
+Jika ada perubahan kode, jalankan:
+
+npm run lint
+npm run build
+npm test
+
+Target:
+
+0 failed
+
+12. LAPORAN WAJIB
+
+Laporkan tabel:
+
+Record | Provider | Model | Prompt | Completion | Total | Stored costUsd | Recomputed cost
+
+Kemudian laporkan:
+
+- exact pricing yang digunakan
+- hasil manual calculation
+- hasil `computeCostUsd()`
+- hasil historical backfill
+- lokasi storage Usage
+- process/PM2 yang aktif
+- apakah ada duplicate server
+- hasil Admin Usage
+- hasil Admin Logs
+- apakah restart mengubah hasil
+- lint
+- build
+- test
+
+PENTING:
+Ini adalah AUDIT/VERIFICATION.
+
+Jangan menambah fitur baru.
+Jangan membuat mock data.
+Jangan mengarang usage.
+Jangan mengubah token.
+Jangan menghapus Usage records.
+Jangan menghapus process secara sembarangan.
+Jangan membuat database/storage baru.
 
 
 ```
