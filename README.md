@@ -7,6 +7,305 @@
 
 
 ```
+# 
+```
+
+
+
+```
+# 
+```
+
+
+
+```
+# Prompt: Usage Tracking & Dashboard Root Cause Fix
+```
+
+Lakukan ROOT-CAUSE AUDIT dan perbaikan pada fitur Usage Tracking / Usage Dashboard project nvidia-api.
+
+KONDISI SAAT INI:
+- Project sudah deployed di VPS production.
+- Provider/model routing sudah terbukti bekerja.
+- `mimo-v2.5:free` berhasil menghasilkan response nyata.
+- `qwen3-8-max-free` juga berhasil menghasilkan response; timeout sebelumnya adalah upstream intermittent, bukan masalah model registry.
+- JANGAN mengubah Model Registry atau Provider Registry kecuali audit membuktikan ada hubungan langsung dengan failure Usage.
+- Fokus utama sekarang adalah Usage Tracking, Usage Dashboard, Logs, Responses, dan Streaming.
+
+HASIL TEST TERAKHIR:
+Test Files: 8 failed | 27 passed | 1 skipped
+Tests: 11 failed | 444 passed | 20 skipped
+
+Failure yang terlihat:
+1. tests/responses.test.ts
+   POST /v1/responses
+   should return responses-compatible structure on success
+
+2. tests/usage-dashboard.test.ts
+   GET /admin/logs
+   should return blocked requests logs with error details
+
+3. tests/usage-tracking.test.ts
+   Request tracking
+   should record a blocked request when model has no provider
+
+4. tests/usage-tracking.test.ts
+   Request tracking
+   should keep recording usage even after many requests
+
+5. tests/stream.test.ts
+   POST /v1/chat/completions (streaming)
+   should return SSE formatted response
+   Error: Stream request timeout
+
+Ada juga failure lain dalam test suite. JANGAN menebak. Audit semua 11 failure.
+
+TUJUAN:
+Cari ROOT CAUSE, bukan sekadar membuat test hijau.
+
+LANGKAH WAJIB:
+
+1. BACA FAILURE LENGKAP
+- Jalankan hanya test file yang relevan terlebih dahulu.
+- Jangan langsung menjalankan full `npm test`.
+- Ambil stack trace dan assertion lengkap.
+- Kelompokkan failure berdasarkan root cause.
+
+2. AUDIT USAGE TRACKING
+Periksa seluruh alur:
+
+incoming request
+→ authentication
+→ model/provider resolution
+→ blocked/validation/success/error
+→ provider request
+→ response
+→ usage extraction
+→ recordUsageFor()
+→ persistence
+→ admin aggregation
+→ logs
+
+Pastikan setiap status diperlakukan benar:
+- success
+- blocked
+- validation error
+- upstream error
+- timeout
+
+3. BLOCKED REQUEST
+
+Khusus kasus:
+"should record a blocked request when model has no provider"
+
+Pastikan request yang diblokir karena model tidak memiliki provider:
+- tidak diteruskan ke upstream
+- menghasilkan HTTP/error status yang sesuai existing behavior
+- tetap dicatat sebagai blocked/error sesuai schema existing
+- provider/model tetap dicatat jika informasinya tersedia
+- error details tersedia pada `/admin/logs`
+- tidak tercatat sebagai successful request
+- tidak mengarang token usage
+
+Jangan mengubah semantics API hanya agar test lulus.
+
+4. MANY REQUESTS
+
+Khusus:
+"should keep recording usage even after many requests"
+
+Audit:
+- storage append/write
+- race condition
+- async logging
+- queue/buffer
+- singleton state
+- database connection
+- array truncation
+- pagination limit
+- ID collision
+- counter reset
+- error swallowing
+
+Pastikan logging 100+ request atau jumlah yang digunakan test tetap menghasilkan record yang benar.
+
+Jangan membuat hardcoded limit hanya agar test lulus.
+
+5. ADMIN LOGS
+
+Khusus:
+GET /admin/logs
+
+Pastikan blocked request memiliki:
+- timestamp
+- provider jika diketahui
+- model
+- status
+- HTTP status
+- error message/details
+- request ID jika tersedia
+
+Jangan expose:
+- API key
+- Authorization header
+- provider credential
+- secret.
+
+6. `/v1/responses`
+
+Audit endpoint `/v1/responses`.
+
+Pastikan response mengikuti struktur yang memang diharapkan project/API compatibility layer.
+
+Jangan membuat response dummy.
+
+Pastikan:
+- valid model request
+- authentication
+- provider resolution
+- upstream request
+- response mapping
+- usage mapping
+- error mapping
+- logging
+
+semuanya konsisten dengan `/v1/chat/completions`.
+
+7. STREAMING
+
+Khusus failure:
+POST /v1/chat/completions (streaming)
+should return SSE formatted response
+Error: Stream request timeout
+
+Audit apakah timeout berasal dari:
+- test server startup
+- request handler
+- provider mock/test server
+- stream writer
+- response headers
+- SSE formatting
+- usage logger
+- socket lifecycle
+- request timeout
+- cleanup/close behavior.
+
+JANGAN sekadar menaikkan timeout.
+
+Pastikan:
+- Content-Type SSE benar
+- data chunks dikirim
+- `[DONE]`/terminator sesuai format existing
+- stream response selesai
+- usage logging tidak memblokir stream
+- request tidak menggantung
+- socket ditutup dengan benar.
+
+8. COMPARE SUCCESSFUL REAL REQUEST
+
+Gunakan hasil real request yang sudah terbukti bekerja sebagai referensi behavior.
+
+Jangan mengganti provider/model yang sedang digunakan.
+
+Pastikan real request menghasilkan:
+- response
+- usage
+- log
+- provider
+- model
+- latency
+- status
+
+secara konsisten.
+
+9. ROOT CAUSE FIRST
+
+Sebelum mengubah kode:
+- identifikasi file penyebab
+- identifikasi fungsi penyebab
+- jelaskan root cause
+- tentukan apakah beberapa failure berasal dari satu bug shared.
+
+Jangan melakukan banyak perubahan terpisah jika satu root cause dapat memperbaiki beberapa test.
+
+10. FIX
+
+Perbaiki root cause dengan perubahan minimal.
+
+JANGAN:
+- membuat mock provider baru
+- membuat fake usage
+- menghardcode test result
+- skip test
+- menghapus assertion
+- mengubah test hanya agar pass
+- menambah timeout secara sembarangan
+- mengubah Model Registry tanpa alasan
+- refactor besar.
+
+11. REGRESSION
+
+Setelah fix:
+jalankan test file yang sebelumnya gagal secara individual.
+
+Kemudian:
+- npm run lint
+- npm run build
+
+Jika semua test yang relevan sudah lulus, baru jalankan full npm test.
+
+12. PRODUCTION SAFETY
+
+Project sedang deployed di VPS.
+
+Jangan:
+- menghapus database
+- reset usage data
+- reset provider state
+- menghapus logs
+- mengubah API key
+- melakukan destructive migration
+- restart production berulang kali tanpa kebutuhan.
+
+Jika perlu restart untuk verification, lakukan satu kali setelah perubahan final.
+
+13. HASIL AKHIR
+
+Laporkan:
+
+ROOT CAUSE:
+- failure
+- penyebab
+- file/fungsi
+
+FIX:
+- file yang diubah
+- perubahan yang dilakukan
+
+VALIDATION:
+- responses.test.ts
+- usage-dashboard.test.ts
+- usage-tracking.test.ts
+- stream.test.ts
+- test lainnya yang terkait
+
+Kemudian:
+- lint
+- build
+- full test
+
+Juga laporkan:
+- jumlah pass/fail/skip
+- apakah Model Registry tetap tidak berubah
+- apakah real model request tetap bekerja.
+
+PENTING:
+Jangan push/commit dulu.
+Jangan mengubah Model Registry.
+Jangan mengubah provider routing.
+Fokus hanya pada root cause Usage/Logs/Responses/Streaming.
+
+```
 
 # Prompt: Final Cost Verification & Runtime Consistency Audit
 ```
