@@ -64,7 +64,353 @@
 ```
 # 
 ```
+PROMPT — IMPLEMENT ADMIN UI FROM DESIGN SPEC
 
+Project: nvidia-api
+
+Design reference sekarang sudah diterjemahkan menjadi specification tekstual.
+
+SOURCE OF TRUTH:
+docs/design/ADMIN-DESIGN-SPEC.md
+
+PENTING:
+Jangan mencoba menebak desain dari screenshot.
+Jangan membuat desain baru.
+Ikuti ADMIN-DESIGN-SPEC.md secara ketat.
+
+TUJUAN:
+Implementasikan ulang UI Admin Dashboard agar mengikuti design specification yang sudah dibuat.
+
+Fokus utama:
+- Sidebar
+- Topbar
+- Provider Management
+- Provider Cards
+- API Key Management
+- Model Registry
+- Usage Dashboard
+- Usage Logs
+- Pricing Management
+- Backup & Restore
+- System Settings
+
+ATURAN:
+
+1. LAYOUT
+
+Gunakan struktur:
+
+Sidebar kiri
++
+Topbar
++
+Main Content
+
+Sidebar:
+- 248px desktop
+- sticky
+- responsive drawer pada layar kecil
+
+Topbar:
+- sticky
+- minimal 58px
+- breadcrumb
+- search
+- refresh
+- system status
+- admin profile
+
+Main content:
+- max-width 1400px
+- padding 24px
+
+2. SIDEBAR
+
+Gunakan menu:
+
+Overview
+Providers
+API Key Management
+Model Registry
+Usage Dashboard
+Usage Logs
+Pricing Management
+Backup & Restore
+System Settings
+
+Pastikan:
+- active state jelas
+- hover state
+- icon konsisten
+- tidak ada menu duplicate yang tidak diperlukan
+- sidebar menjadi primary navigation
+
+3. PROVIDER MANAGEMENT
+
+Provider Management harus mengikuti spec.
+
+Desktop:
+3 kolom
+
+Tablet:
+2 kolom
+
+Mobile:
+1 kolom
+
+Provider card harus memiliki:
+
+- provider icon
+- provider name
+- provider domain
+- ENABLED/DISABLED badge
+- Models
+- API Keys
+- Requests
+- Manage API Keys
+- Enable/Disable
+- jumlah model tambahan
+
+Gunakan data provider existing.
+
+JANGAN menggunakan dummy provider.
+
+4. DESIGN TOKEN
+
+Gunakan design token dari:
+
+docs/design/ADMIN-DESIGN-SPEC.md
+
+Jangan membuat warna baru di luar design system kecuali benar-benar diperlukan.
+
+Gunakan:
+- primary blue
+- success green
+- danger red
+- light background
+- border
+- muted text
+- card shadow
+- radius sesuai spec
+
+UI harus terang/clean.
+
+JANGAN menggunakan dark dashboard.
+
+5. COMPONENT REUSE
+
+Audit component existing terlebih dahulu.
+
+Jika sudah ada:
+- Button
+- Card
+- Badge
+- Input
+- Modal
+- Table
+- Sidebar
+- Header
+- Pagination
+- Empty state
+- Error state
+- Skeleton
+
+gunakan kembali.
+
+Jangan membuat component duplicate.
+
+6. FUNCTIONALITY
+
+UI hanya mengubah presentation layer.
+
+JANGAN merusak:
+- Provider Management
+- Enable/Disable Provider
+- API Key Management
+- Model Registry
+- Usage Tracking
+- Usage Dashboard
+- Logs
+- Pricing
+- Backup/Restore
+- System Settings
+- `/v1/models`
+- API request
+- streaming
+
+Semua data harus tetap berasal dari API/service/storage existing.
+
+7. API KEY MANAGEMENT
+
+Pertahankan security behavior existing.
+
+API key:
+- jangan ditampilkan plaintext setelah disimpan
+- gunakan masked representation
+- raw key hanya boleh diterima melalui flow create yang sudah ada
+- jangan memasukkan secret ke frontend log
+- jangan menyimpan credential di localStorage jika arsitektur existing tidak menggunakannya
+
+8. USAGE DASHBOARD
+
+Gunakan component chart existing jika sudah tersedia.
+
+Jika chart component belum ada:
+buat reusable chart component berdasarkan design token.
+
+Jangan membuat chart hanya sebagai dekorasi.
+
+Data harus berasal dari Usage API existing.
+
+9. LOGS
+
+Gunakan:
+- table
+- filter
+- pagination
+- status badge
+- provider
+- model
+- HTTP status
+- token usage
+- latency
+
+Pastikan credential tetap masked.
+
+10. RESPONSIVE
+
+WAJIB diuji pada:
+
+Desktop
+Tablet
+Mobile
+
+Mobile:
+- sidebar menjadi drawer
+- topbar tetap usable
+- provider card menjadi satu kolom
+- table dapat di-scroll atau menggunakan responsive layout
+- button tidak keluar layar
+- tidak ada horizontal overflow yang tidak diperlukan
+
+11. VISUAL QUALITY
+
+Target desain:
+
+clean
+modern
+professional
+light
+premium
+minimal
+
+Hindari:
+- gradient berlebihan
+- dark background
+- card terlalu gelap
+- shadow berat
+- border berlebihan
+- typography terlalu besar
+- menu duplicate
+
+12. IMPLEMENTATION PROCESS
+
+Sebelum coding:
+
+1. Audit frontend existing.
+2. Identifikasi routing.
+3. Identifikasi component system.
+4. Identifikasi styling system.
+5. Identifikasi API calls.
+6. Identifikasi halaman admin yang sudah ada.
+
+Kemudian implementasikan design system secara bertahap.
+
+Prioritas:
+
+Phase 1:
+- App shell
+- Sidebar
+- Topbar
+
+Phase 2:
+- Provider Management
+
+Phase 3:
+- API Key Management
+- Model Registry
+
+Phase 4:
+- Usage Dashboard
+- Logs
+
+Phase 5:
+- Pricing
+- Backup/Restore
+- System Settings
+
+Jangan menghapus halaman yang sudah ada.
+
+13. TESTING
+
+Setelah implementasi:
+
+npm run lint
+npm run build
+npm test
+
+Jika tersedia:
+npm run dev
+
+Lakukan juga pemeriksaan frontend untuk:
+- route tidak rusak
+- API request tidak berubah
+- provider toggle tetap bekerja
+- API key management tetap bekerja
+- usage tetap tampil
+- logs tetap tampil
+- backup/restore tetap bekerja
+
+Jangan menjalankan test Gorouter.app.
+
+14. JANGAN MELAKUKAN
+
+Jangan:
+- membuat backend baru
+- membuat database baru
+- membuat provider dummy
+- membuat API dummy
+- mengubah business logic
+- mengganti endpoint existing
+- menghapus fitur
+- melakukan refactor besar
+- mengubah credential
+- membocorkan API key
+- mengubah test hanya agar lulus
+
+15. HASIL AKHIR
+
+Laporkan:
+
+- file frontend yang diubah
+- component baru
+- component yang digunakan kembali
+- halaman yang sudah mengikuti design spec
+- responsive behavior
+- design token yang digunakan
+- hasil lint
+- hasil build
+- hasil test
+- jumlah test pass/fail/skip
+- masalah yang masih tersisa
+
+PENTING:
+
+ADMIN-DESIGN-SPEC.md adalah SOURCE OF TRUTH.
+
+Jika ada perbedaan antara UI lama dan specification:
+ikuti specification untuk visual/UI,
+tetapi pertahankan functionality dan backend existing.
 
 
 ```
