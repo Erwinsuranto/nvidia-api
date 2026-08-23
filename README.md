@@ -84,7 +84,97 @@
 # 
 ```
 
+PROMPT — SAVE ADMIN UI DESIGN REFERENCE
 
+Pada project `nvidia-api`, saya lampirkan gambar desain UI Admin Dashboard yang akan menjadi DESIGN REFERENCE utama.
+
+TUGAS:
+
+1. Simpan gambar desain tersebut ke project dengan lokasi:
+   `docs/design/admin-dashboard-reference.png`
+
+2. Jika folder belum ada, buat:
+   `docs/design/`
+
+3. Jangan mengubah atau menghapus source code existing.
+
+4. Buat file dokumentasi:
+   `docs/design/README.md`
+
+Isi README menjelaskan bahwa:
+
+- `admin-dashboard-reference.png` adalah referensi visual utama untuk Admin Dashboard.
+- Semua pengembangan UI berikutnya harus mengikuti desain tersebut.
+- Gunakan desain sebagai acuan:
+  - warna
+  - spacing
+  - typography
+  - card
+  - button
+  - sidebar
+  - header
+  - provider cards
+  - status badge
+  - layout
+  - responsive behavior
+  - border radius
+  - icon style
+  - hierarchy informasi
+
+5. PENTING:
+   Desain menggunakan LIGHT THEME, bukan dark theme.
+
+   Karakter visual:
+   - background putih / sangat terang
+   - primary blue
+   - teks dark navy
+   - card putih
+   - border tipis
+   - shadow sangat ringan
+   - status success hijau
+   - status danger merah
+   - tampilan modern, clean dan profesional
+   - tidak menggunakan background gelap sebagai tema utama
+
+6. Struktur navigasi pada desain harus dipahami sebagai:
+   Sidebar = navigasi utama aplikasi.
+   Header = kontrol halaman/global seperti search, refresh, system status dan admin profile.
+
+   JANGAN membuat menu sidebar dan menu header menjadi dua navigasi yang memiliki fungsi sama.
+
+7. Jangan langsung mengubah UI existing hanya karena gambar sudah disimpan.
+
+   Tahap ini hanya:
+   - menyimpan reference
+   - mendokumentasikan design system
+   - memastikan file dapat digunakan AI sebagai referensi pada task berikutnya.
+
+8. Setelah selesai:
+   - cek file benar-benar tersimpan
+   - cek path file
+   - pastikan PNG dapat dibaca
+   - jangan membuat duplicate reference image
+   - jalankan lint/build jika perubahan dokumentasi/source membutuhkan validasi
+
+9. JIKA ADA MASALAH:
+   Jangan hanya melaporkan masalah.
+
+   Jika ada error yang disebabkan perubahan yang kamu lakukan:
+   → langsung perbaiki
+   → jalankan ulang validasi
+   → laporkan hasil akhirnya.
+
+HASIL AKHIR:
+Laporkan:
+- lokasi design reference
+- lokasi README design
+- apakah gambar berhasil dibaca
+- apakah ada file source yang berubah
+- hasil validasi
+- masalah yang ditemukan dan langsung diperbaiki jika ada.
+
+Jangan membuat desain baru pada tahap ini.
+Gunakan gambar yang saya lampirkan sebagai reference resmi.
 
 ```
 # Prompt: API Key Management Final UI & E2E
