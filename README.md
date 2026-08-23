@@ -8,10 +8,382 @@
 
 
 ```
-# 
+# Prompt: API Key Management Final UI & E2E
 ```
 
+Lanjutkan project `nvidia-api`.
 
+JANGAN hanya audit.
+Jika menemukan bug, langsung identifikasi root cause, PERBAIKI source code, tambahkan regression test, lalu jalankan ulang validation.
+
+FOKUS:
+Finalisasi fitur API Key Management melalui UI sampai benar-benar end-to-end.
+
+FITUR YANG WAJIB DIVERIFIKASI DAN DIPERBAIKI JIKA SALAH:
+
+1. API KEY LIST
+
+Pada halaman Provider Management/API Key Management, tampilkan untuk setiap provider:
+
+- Provider
+- jumlah managed API key
+- daftar key yang sudah dimasking
+- status enabled/disabled
+- key ID/fingerprint jika tersedia
+- createdAt jika tersedia
+
+JANGAN pernah menampilkan raw API key setelah key disimpan.
+
+2. ADD API KEY VIA UI
+
+Pastikan admin dapat:
+
+Provider → Add API Key → masukkan API key → Save
+
+Setelah berhasil:
+
+- key tersimpan persistent
+- jumlah managed key bertambah
+- key langsung tersedia untuk rotation
+- UI melakukan refresh data
+- tidak perlu restart server.
+
+Saat Save sedang berjalan tampilkan state:
+- Saving...
+
+Setelah berhasil:
+- kembali ke daftar key
+- tampilkan key dalam bentuk masked.
+
+Jika gagal:
+- tampilkan error yang jelas
+- jangan membuat record setengah jadi
+- jangan menampilkan raw secret dalam error.
+
+3. DELETE API KEY VIA UI
+
+Admin dapat memilih key tertentu dan Delete.
+
+Sebelum delete:
+- tampilkan confirmation dialog.
+
+Saat delete:
+- tampilkan state Working/Deleting.
+
+Setelah berhasil:
+- key hilang dari storage
+- count berkurang
+- key tidak lagi digunakan KeyManager
+- UI refresh.
+
+Jika key sedang digunakan oleh rotation:
+- rotation harus tetap aman
+- jangan sampai request berikutnya crash.
+
+4. ENABLE / DISABLE KEY
+
+Jika arsitektur ApiKeyStore sudah memiliki state enabled/disabled untuk key:
+
+Pastikan UI dapat:
+
+Enable key
+Disable key
+
+Disabled key:
+- tetap tersimpan
+- tetap dihitung sebagai managed key sesuai definisi existing
+- tidak boleh dipilih KeyManager untuk request.
+
+Enable kembali:
+- langsung dapat digunakan rotation
+- tidak membutuhkan restart.
+
+Jika project memang TIDAK memiliki konsep disable per-key:
+- jangan membuat sistem baru yang duplikatif.
+- pertahankan hanya Provider Enable/Disable dan dokumentasikan bahwa per-key disable belum menjadi bagian schema.
+
+5. COUNT
+
+Pastikan count API key konsisten:
+
+managedKeyCount
+=
+jumlah managed key yang tersimpan.
+
+Pisahkan:
+
+managedKeyCount
+envKeyCount
+
+Jangan:
+- mencampur env key dengan managed key
+- menghitung duplicate sebagai dua key
+- mengurangi count ketika key hanya disabled.
+
+Verifikasi count pada:
+- provider list
+- provider detail
+- dashboard jika ditampilkan
+- setelah add
+- setelah delete
+- setelah restart.
+
+6. DUPLICATE PROTECTION
+
+Saat admin menambahkan key yang sama:
+
+- request ditolak dengan status/error yang sesuai
+- tidak membuat duplicate record
+- count tidak bertambah
+- raw key tidak muncul pada error.
+
+Test juga:
+- duplicate managed key
+- duplicate terhadap env key jika behavior existing memang mendukung pengecekan tersebut.
+
+7. ROTATION
+
+Gunakan ApiKeyStore + KeyManager existing.
+
+JANGAN membuat KeyManager baru.
+
+Dengan minimal 3 managed key:
+
+A
+B
+C
+
+Pastikan request menggunakan rotation existing.
+
+Setelah:
+- A di-delete
+- B di-disable jika supported
+- C tetap aktif
+
+KeyManager harus otomatis menyesuaikan tanpa restart.
+
+Pastikan tidak ada:
+- stale deleted key
+- stale disabled key
+- crash karena index rotation
+- infinite retry terhadap key yang sudah tidak tersedia.
+
+8. RESTART PERSISTENCE
+
+Lakukan:
+
+ADD KEY
+→ verify
+→ restart server
+→ verify
+
+Pastikan:
+- key tetap ada
+- raw key tetap tidak ditampilkan
+- managedKeyCount tetap benar
+- enabled/disabled state tetap benar
+- KeyManager dapat menggunakan key setelah restart.
+
+Kemudian:
+
+DELETE KEY
+→ restart
+→ verify
+
+Pastikan key tidak muncul kembali.
+
+9. SECURITY
+
+Scan seluruh jalur API Key Management.
+
+Raw key TIDAK BOLEH muncul pada:
+
+- frontend HTML
+- frontend state
+- localStorage
+- sessionStorage
+- URL
+- query parameter
+- GET response
+- dashboard
+- logs
+- Usage Logs
+- error message
+- backup
+- console output.
+
+Raw key hanya boleh diterima pada operasi create/update melalui POST body dan kemudian disimpan sesuai mekanisme secret storage existing.
+
+Gunakan:
+- masked key
+- key ID
+- fingerprint
+
+untuk response/listing.
+
+10. BACKUP COMPATIBILITY
+
+Pastikan API key managed:
+
+- TIDAK masuk backup sebagai raw secret.
+- Delete tetap permanent.
+- Restore backup tidak menciptakan credential palsu.
+
+Jika existing backup memang tidak menyimpan managed credential:
+- pertahankan behavior tersebut.
+
+Jangan mengubah backup menjadi penyimpanan raw API key.
+
+11. ADMIN API
+
+Audit endpoint API Key Management existing.
+
+Pastikan tersedia behavior untuk:
+
+- list keys
+- add key
+- delete key
+- count
+- enable/disable jika schema mendukung.
+
+Pastikan:
+- semua endpoint membutuhkan admin authorization
+- GET/list tidak mengembalikan raw key
+- DELETE menggunakan key ID, bukan raw key
+- POST hanya menerima raw key pada body
+- error response tidak membocorkan secret.
+
+Jangan membuat endpoint duplikatif jika endpoint existing sudah tersedia.
+
+12. UI ERROR HANDLING
+
+Pastikan UI menangani:
+
+- duplicate key
+- invalid provider
+- missing key
+- delete failure
+- storage failure
+- unauthorized admin
+- server error
+- network error.
+
+Tidak boleh ada UI yang stuck pada:
+- Saving...
+- Deleting...
+- Loading...
+
+Jika request gagal, state harus kembali normal.
+
+13. LOADING & REFRESH
+
+Pastikan:
+- initial page load mengambil data terbaru
+- add berhasil → refresh
+- delete berhasil → refresh
+- enable/disable berhasil → refresh
+- restart server → data tetap benar.
+
+Jangan menggunakan hardcoded count.
+
+14. TESTING
+
+Tambahkan/pertahankan regression test untuk:
+
+- list managed keys
+- add key
+- add duplicate key
+- delete key
+- count after add
+- count after delete
+- enable/disable key jika supported
+- rotation
+- delete key during rotation
+- restart persistence
+- admin authorization
+- raw key masking
+- raw key tidak muncul di logs
+- raw key tidak muncul di backup
+- UI error response jika endpoint memiliki testable HTTP contract.
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+JANGAN menjalankan atau memicu test/integration test Gorouter.app.
+
+Jika test Gorouter otomatis ikut ditemukan:
+- skip/exclude menggunakan mekanisme existing
+- jangan mengubah test Gorouter agar terlihat pass
+- laporkan jumlah skipped.
+
+15. REGRESSION
+
+Pastikan tidak merusak:
+
+- Provider Management
+- Provider Enable/Disable
+- Model Registry
+- /v1/models
+- normal request
+- streaming
+- Usage Tracking
+- Usage Dashboard
+- Logs
+- Pricing
+- Backup/Restore
+- API Key rotation.
+
+Jangan melakukan refactor besar.
+
+16. JIKA ADA BUG
+
+WAJIB:
+
+1. Cari root cause.
+2. Perbaiki source code.
+3. Tambahkan regression test.
+4. Jalankan lint.
+5. Jalankan build.
+6. Jalankan test.
+7. Verifikasi ulang flow yang bermasalah.
+
+Jangan hanya melaporkan:
+"bug ditemukan".
+
+17. FINAL REPORT
+
+Laporkan:
+
+- Add API key via UI
+- Delete API key
+- Count managed keys
+- envKeyCount
+- duplicate protection
+- enable/disable key jika supported
+- rotation
+- restart persistence
+- admin authorization
+- security masking
+- backup compatibility
+- endpoint API
+- file yang diubah
+- test pass/fail/skip
+- lint
+- build
+- masalah yang masih tersisa.
+
+PENTING:
+
+Jangan membuat ApiKeyStore baru.
+Jangan membuat KeyManager baru.
+Jangan membuat storage baru.
+Jangan mengembalikan raw API key ke frontend.
+Jangan menyimpan raw API key di backup/log.
+Jangan menggunakan Gorouter.app.
+Jika ada kesalahan, langsung perbaiki.
 
 ```
 
