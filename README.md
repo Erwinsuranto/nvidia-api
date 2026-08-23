@@ -70,7 +70,310 @@
 ```
 # 
 ```
+PROMPT — CREATE ADMIN DASHBOARD DESIGN SPECIFICATION
 
+Project: nvidia-api
+
+Saya memiliki referensi desain Admin Dashboard yang harus menjadi standar UI project.
+
+File referensi:
+docs/design/admin-dashboard-reference.png
+
+IMPORTANT:
+Environment/AI yang menjalankan task ini mungkin TIDAK memiliki kemampuan vision untuk membaca isi gambar.
+
+Karena itu JANGAN menganggap AI dapat memahami desain hanya dengan membaca file PNG.
+
+Tugas sekarang BUKAN melakukan redesign.
+
+Tugas hanya:
+menganalisis struktur frontend existing dan membuat dokumentasi design specification tekstual yang dapat digunakan AI coding tanpa perlu melihat gambar.
+
+Buat file:
+
+docs/design/ADMIN-DESIGN-SPEC.md
+
+Dokumen tersebut harus menjadi sumber kebenaran (source of truth) untuk desain Admin Dashboard.
+
+Dokumen WAJIB menjelaskan secara detail:
+
+1. GLOBAL DESIGN
+- light theme
+- background colors
+- primary blue
+- text colors
+- secondary text
+- success green
+- danger red
+- border colors
+- card colors
+- shadow
+- border radius
+- typography hierarchy
+
+2. PAGE LAYOUT
+Jelaskan struktur:
+
+Sidebar kiri
++
+Top Header
++
+Main Content
+
+Jelaskan:
+- sidebar width
+- header height
+- content padding
+- gap
+- responsive behavior
+
+Gunakan nilai CSS yang konkret jika dapat ditentukan.
+
+3. SIDEBAR
+
+Dokumentasikan:
+- posisi
+- ukuran
+- background
+- border
+- logo
+- branding
+- menu
+- icon
+- active state
+- hover state
+- spacing
+- system status card
+- version footer
+
+Menu:
+
+Overview
+Providers
+API Key Management
+Model Registry
+Usage Dashboard
+Usage Logs
+Pricing Management
+Backup & Restore
+System Settings
+
+4. HEADER
+
+Dokumentasikan:
+- sidebar toggle
+- breadcrumb
+- search
+- Ctrl+K indicator
+- refresh
+- system status
+- admin profile
+- spacing
+- alignment
+
+5. PROVIDER MANAGEMENT
+
+Dokumentasikan:
+- page title
+- subtitle
+- Add Provider button
+- provider grid
+- desktop 3 columns
+- tablet 2 columns
+- mobile 1 column
+
+6. PROVIDER CARD
+
+Dokumentasikan secara detail:
+
+Header:
+provider icon
+provider name
+provider domain
+enabled badge
+
+Statistics:
+Models
+API Keys
+Requests
+
+Actions:
+Manage API Keys
+Disable/Enable
+additional model count
+
+Jelaskan posisi setiap elemen.
+
+7. COLORS
+
+Gunakan color token.
+
+Contoh format:
+
+--color-primary
+--color-primary-hover
+--color-primary-light
+--color-text-primary
+--color-text-secondary
+--color-border
+--color-success
+--color-success-light
+--color-danger
+--color-danger-light
+--color-background
+
+Gunakan HEX/RGB yang realistis berdasarkan desain reference.
+
+8. BUTTONS
+
+Dokumentasikan:
+
+Primary
+Secondary
+Danger
+Icon button
+
+Jelaskan:
+- height
+- padding
+- radius
+- font size
+- border
+- hover
+- active
+- disabled
+
+9. BADGES
+
+Dokumentasikan ENABLED badge dan status lainnya.
+
+10. CARDS
+
+Dokumentasikan:
+- background
+- border
+- radius
+- shadow
+- padding
+- spacing
+
+11. TYPOGRAPHY
+
+Dokumentasikan:
+- page title
+- section title
+- card title
+- body
+- metadata
+- button
+- badge
+
+12. ICONS
+
+Dokumentasikan:
+- ukuran
+- style
+- alignment
+- warna
+- penggunaan icon library existing jika tersedia.
+
+13. RESPONSIVE
+
+Dokumentasikan behavior:
+
+Desktop
+Tablet
+Mobile
+
+Termasuk:
+- sidebar collapse
+- mobile drawer
+- card grid
+- header
+- search
+- tables
+- buttons
+
+14. OTHER ADMIN PAGES
+
+Design specification juga harus berlaku untuk:
+
+Overview
+API Key Management
+Model Registry
+Usage Dashboard
+Usage Logs
+Pricing Management
+Backup & Restore
+System Settings
+
+Semua harus menggunakan design system yang sama.
+
+15. NAVIGATION RULE
+
+Sidebar = primary navigation.
+
+Header = global controls/context.
+
+Jangan membuat menu navigasi duplicate di header.
+
+16. FUNCTIONALITY
+
+Design specification TIDAK boleh mengubah business logic.
+
+UI redesign tidak boleh merusak:
+- Provider Management
+- API Key Management
+- Model Registry
+- Usage
+- Logs
+- Pricing
+- Backup/Restore
+- Settings
+- API endpoints.
+
+17. COMPONENT SYSTEM
+
+Identifikasi component existing yang dapat digunakan kembali.
+
+Jika sudah ada:
+- Button
+- Card
+- Badge
+- Input
+- Modal
+- Table
+- Sidebar
+- Header
+
+gunakan kembali.
+
+Jangan membuat component duplicate tanpa alasan.
+
+18. IMPLEMENTATION RULE
+
+Jangan melakukan coding redesign pada task ini.
+
+Hanya:
+- audit frontend existing
+- dokumentasikan design system
+- dokumentasikan layout
+- dokumentasikan component
+- dokumentasikan responsive behavior
+
+Setelah selesai, tampilkan:
+
+- lokasi file specification
+- ringkasan design token
+- struktur layout
+- component yang ditemukan
+- component yang belum tersedia
+- rekomendasi implementasi tahap berikutnya
+
+Jangan mengubah backend.
+Jangan mengubah business logic.
+Jangan mengubah API.
+Jangan melakukan refactor besar.
 
 
 ```
