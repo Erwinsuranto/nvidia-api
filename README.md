@@ -15,11 +15,353 @@
 
 ```
 
-# 
+# Prompt: API Key R
 ```
 
 
+Lanjutkan project `nvidia-api`.
 
+JANGAN hanya audit.
+Jika menemukan bug atau ketidaksesuaian, LANGSUNG PERBAIKI lalu jalankan test ulang.
+
+FOKUS:
+Verifikasi integrasi penuh antara API Key Management → KeyManager → Provider Request → Usage → Logs → Dashboard.
+
+Jangan membuat sistem key baru.
+Gunakan ApiKeyStore dan KeyManager existing.
+
+1. MANAGED KEY COUNT
+
+Pastikan jumlah API key pada UI berasal dari ApiKeyStore:
+
+managedKeyCount = jumlah managed API key yang tersimpan.
+
+Pisahkan dengan jelas:
+- managedKeyCount
+- envKeyCount
+
+Jangan menjumlahkan env key ke managed key.
+
+Pastikan count konsisten pada:
+- provider list
+- provider detail
+- dashboard
+- setelah add
+- setelah delete
+- setelah enable/disable
+- setelah restart.
+
+2. REQUEST MENGGUNAKAN ROTATION KEY
+
+Siapkan minimal 3 managed API key untuk provider yang sama.
+
+Contoh:
+
+key A
+key B
+key C
+
+Lakukan beberapa request nyata/internal melalui provider tersebut.
+
+Pastikan KeyManager melakukan rotation/round-robin menggunakan key yang berbeda sesuai mekanisme existing.
+
+Jangan membuat KeyManager baru setiap request.
+
+Pastikan:
+request 1 → key A
+request 2 → key B
+request 3 → key C
+request berikutnya → kembali sesuai rotation state existing.
+
+Jangan tampilkan raw key di output.
+
+3. DELETE KEY
+
+Delete salah satu key yang sedang berada dalam rotation.
+
+Pastikan:
+- key benar-benar hilang dari ApiKeyStore
+- KeyManager tidak lagi memilih key tersebut
+- rotation otomatis menyesuaikan
+- request berikutnya menggunakan key yang masih aktif
+- tidak terjadi crash
+- count berkurang.
+
+4. DISABLE PROVIDER
+
+Disable provider yang memiliki beberapa managed key.
+
+Pastikan:
+- semua request baru diblokir
+- key tidak digunakan ketika provider disabled
+- managed keys tetap tersimpan
+- count tetap benar.
+
+Enable kembali:
+
+- rotation kembali aktif
+- key tidak perlu ditambahkan ulang.
+
+5. DELETE SEMUA MANAGED KEY
+
+Jika provider tidak memiliki managed key:
+
+Pastikan behavior existing untuk env key tetap benar.
+
+Jangan:
+- menghapus env key
+- menganggap provider tidak ada
+- membuat key otomatis
+- menampilkan count managed sebagai env key.
+
+6. DUPLICATE
+
+Tambahkan key yang sama dengan:
+- managed key existing
+- env key jika applicable
+
+Pastikan duplicate detection sesuai behavior existing.
+
+Jangan sampai duplicate menghasilkan dua managed record.
+
+7. REQUEST → USAGE
+
+Setiap request yang benar-benar diproses harus menghasilkan Usage Record yang benar.
+
+Pastikan Usage Record memiliki:
+
+- provider
+- exact model
+- status
+- HTTP status
+- input tokens
+- output tokens
+- total tokens
+- latency
+- timestamp
+- client/API identifier yang masked.
+
+API key yang digunakan untuk upstream:
+- JANGAN disimpan sebagai raw key.
+- Jika perlu identifikasi key, gunakan key ID/label/fingerprint yang aman.
+
+8. USAGE COST
+
+Audit jalur:
+
+REQUEST
+→ provider
+→ exact model
+→ upstream usage
+→ input/output/total tokens
+→ pricing lookup
+→ cost calculation
+→ usage storage
+→ aggregation
+→ admin API
+→ dashboard.
+
+Pastikan tidak ada jalur yang:
+- kehilangan provider
+- kehilangan model
+- kehilangan token
+- menghitung total token dua kali
+- menghitung cost dua kali
+- memakai pricing model yang salah.
+
+9. PRICING
+
+Untuk setiap usage record yang mempunyai pricing:
+
+inputCost = inputTokens × inputPrice
+outputCost = outputTokens × outputPrice
+
+totalCost = inputCost + outputCost
+
+Pastikan pricing menggunakan:
+provider + exact model.
+
+Jangan fallback ke harga model lain jika exact pricing tersedia.
+
+Jika pricing tidak tersedia:
+- cost harus null/N/A sesuai schema existing
+- JANGAN menggunakan $0 sebagai harga sebenarnya.
+
+10. DASHBOARD
+
+Pastikan dashboard menggunakan data aggregation yang sama dengan Usage Store.
+
+Periksa:
+
+- Total Requests
+- Successful Requests
+- Failed Requests
+- Blocked Requests
+- Input Tokens
+- Output Tokens
+- Total Tokens
+- Total Cost
+
+Provider breakdown:
+
+Provider
+Requests
+Tokens
+Cost
+
+Model breakdown:
+
+Provider
+Model
+Requests
+Input
+Output
+Total
+Cost
+
+Pastikan angka dashboard dapat direkonsiliasi dengan record detail.
+
+11. RECONCILIATION TEST
+
+Buat dataset test deterministik:
+
+Request A:
+input = 100
+output = 50
+
+Request B:
+input = 200
+output = 100
+
+Maka:
+
+total input = 300
+total output = 150
+total tokens = 450
+
+Cost harus dihitung dari pricing exact model/provider.
+
+Pastikan dashboard:
+
+sum(records) == aggregation == dashboard
+
+Jangan membuat angka hardcoded di production code.
+
+12. REFRESH / RESTART
+
+Setelah beberapa request:
+
+- refresh dashboard
+- restart server
+- buka dashboard kembali.
+
+Pastikan:
+- usage tetap ada
+- cost tetap sama
+- token tetap sama
+- key count tetap benar
+- provider state tetap benar
+- rotation state tidak corrupt.
+
+13. SECURITY
+
+Scan seluruh jalur baru.
+
+Raw API key TIDAK BOLEH muncul di:
+
+- HTML
+- frontend state
+- localStorage
+- sessionStorage
+- URL
+- query parameter
+- logs
+- Usage Record
+- Dashboard response
+- error message
+- backup.
+
+Gunakan masked key / key ID / fingerprint jika identifikasi diperlukan.
+
+14. TESTING
+
+Tambahkan test untuk:
+
+- managed key count
+- env key count separation
+- key rotation
+- delete key saat rotation
+- provider disable dengan multiple keys
+- enable kembali
+- duplicate protection
+- request → usage
+- usage → pricing
+- pricing → cost
+- aggregation
+- dashboard totals
+- restart persistence
+- secret leak protection.
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+JANGAN menjalankan atau memicu test/integration test Gorouter.app.
+
+Jika test Gorouter otomatis ditemukan:
+- skip/exclude secara permanen sesuai mekanisme existing
+- jangan mengubah test Gorouter agar terlihat pass
+- laporkan jumlah skipped.
+
+15. JIKA ADA BUG
+
+JANGAN hanya menulis "masalah ditemukan".
+
+Langsung:
+1. identifikasi root cause
+2. perbaiki source code
+3. tambahkan regression test
+4. jalankan lint
+5. jalankan build
+6. jalankan test
+7. verifikasi ulang flow yang diperbaiki.
+
+Jangan melakukan refactor besar.
+
+16. FINAL REPORT
+
+Laporkan:
+
+- managedKeyCount
+- envKeyCount
+- rotation
+- add/delete
+- duplicate
+- enable/disable
+- request integration
+- usage integration
+- pricing
+- cost calculation
+- dashboard reconciliation
+- restart persistence
+- security audit
+- file yang diubah
+- test pass/fail/skip
+- lint
+- build
+- masalah yang masih tersisa.
+
+PENTING:
+Jangan membuat ApiKeyStore baru.
+Jangan membuat KeyManager baru.
+Jangan membuat provider/model dummy.
+Jangan mengarang token.
+Jangan mengarang pricing.
+Jangan membocorkan API key.
+Jangan menggunakan Gorouter.app.
+Jika ada bug, langsung perbaiki.
 ```
 # Prompt: API Key Management — UI Real Verification & Fix
 ```
