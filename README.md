@@ -21,9 +21,426 @@
 
 ```
 
-# 
+# Prompt: Model Pricing & Cost Dashboard
 ```
+Lakukan implementasi dan audit fitur **Model Pricing Management + Cost Calculation** pada project `nvidia-api`.
 
+PENTING:
+- Jangan hanya audit.
+- Jika menemukan bug atau ketidaksesuaian, langsung perbaiki.
+- Jangan membuat provider/model dummy.
+- Jangan mengubah API key management yang sudah selesai kecuali diperlukan untuk integrasi.
+- Jangan mengarang harga model.
+- Jangan mengarang token.
+- Gunakan data usage dan pricing yang benar-benar tersimpan di project.
+
+TUJUAN:
+Pastikan setiap usage request dapat dihitung menjadi biaya berdasarkan:
+
+input tokens
++ output tokens
++ pricing model
+= cost USD
+
+Kemudian hasilnya harus konsisten sampai ke Usage Dashboard.
+
+1. AUDIT PRICING SYSTEM
+
+Audit seluruh jalur:
+
+REQUEST
+→ PROVIDER
+→ MODEL
+→ USAGE TOKENS
+→ MODEL PRICING
+→ COST CALCULATION
+→ USAGE STORE
+→ AGGREGATION
+→ ADMIN API
+→ DASHBOARD
+
+Periksa seluruh file terkait pricing, minimal:
+- src/lib/pricing.ts
+- src/lib/usage-store.ts
+- src/services/provider.ts
+- src/routes/admin.ts
+- src/admin/dashboard.ts
+- src/admin/index.html
+- src/admin/styles.css
+- model registry
+- usage aggregation
+
+Jika ada jalur yang putus, langsung perbaiki.
+
+2. MODEL PRICING REGISTRY
+
+Buat/sempurnakan registry pricing model yang digunakan project.
+
+Setiap model pricing minimal memiliki:
+
+- provider
+- exact model ID
+- input price per 1M tokens
+- output price per 1M tokens
+- currency = USD
+- active/inactive jika diperlukan
+- source/update metadata jika schema existing mendukung
+
+Jangan menggunakan nama model yang berbeda dari model registry.
+
+Exact model ID harus sama dengan model yang muncul di `/v1/models` dan Usage Logs.
+
+3. PRICING CALCULATION
+
+Gunakan formula:
+
+inputCost =
+(inputTokens / 1,000,000) * inputPricePer1M
+
+outputCost =
+(outputTokens / 1,000,000) * outputPricePer1M
+
+totalCost =
+inputCost + outputCost
+
+Pastikan perhitungan menggunakan angka presisi yang aman.
+
+Jangan melakukan pembulatan terlalu awal.
+
+Simpan hasil akhir sesuai precision schema existing.
+
+4. TOKEN VALIDATION
+
+Gunakan token asli dari Usage record.
+
+Jika:
+
+inputTokens = null
+atau
+outputTokens = null
+
+Jangan mengarang token.
+
+Cost harus:
+- null jika cost tidak dapat dihitung secara valid
+atau
+- mengikuti behavior existing yang sudah ditetapkan project.
+
+Jangan mengubah null menjadi 0 hanya agar dashboard terlihat bagus.
+
+Jika totalTokens tersedia:
+
+totalTokens =
+inputTokens + outputTokens
+
+Validasi konsistensinya.
+
+5. HISTORICAL USAGE
+
+Audit record lama.
+
+Jika usage lama mempunyai:
+- model
+- inputTokens
+- outputTokens
+
+tetapi costUsd masih null karena pricing baru tersedia:
+
+Jangan merusak record lama.
+
+Implementasikan backfill hanya jika aman dan sesuai arsitektur existing.
+
+Backfill harus:
+- menggunakan exact model ID
+- menggunakan pricing yang benar
+- tidak mengubah token
+- tidak menggandakan record
+- tidak mengubah timestamp/request ID
+- dapat dijalankan lebih dari sekali tanpa menghasilkan cost ganda.
+
+Jika pricing model memang tidak tersedia:
+- cost tetap null
+- jangan menggunakan harga perkiraan.
+
+6. ADMIN PRICING UI
+
+Tambahkan halaman/section admin untuk mengelola pricing model.
+
+Minimal:
+
+- Provider
+- Model
+- Input price / 1M tokens
+- Output price / 1M tokens
+- Status
+- Edit
+- Enable/Disable
+
+Jika model sudah terdaftar dari model registry:
+gunakan model tersebut.
+
+Jangan membuat model baru dari UI jika model tersebut tidak ada di registry kecuali arsitektur memang membutuhkan pricing entry terpisah.
+
+7. ADD/EDIT PRICING
+
+Admin harus dapat:
+
+- tambah pricing
+- edit pricing
+- enable pricing
+- disable pricing
+
+Validasi:
+- provider wajib valid
+- model wajib valid
+- harga tidak boleh negatif
+- harga harus numeric
+- input/output price harus valid
+- duplicate provider + model harus ditolak atau di-update dengan behavior yang jelas.
+
+8. DELETE PRICING
+
+Jika delete memang diperlukan oleh arsitektur:
+- jangan menghapus historical cost yang sudah tersimpan.
+- delete hanya pricing configuration.
+- usage lama tetap aman.
+
+Jika lebih aman menggunakan disable:
+gunakan disable daripada hard delete.
+
+9. USAGE COST
+
+Pastikan setiap usage baru setelah request selesai:
+
+usage record
+→ token usage
+→ lookup pricing berdasarkan provider + exact model
+→ calculate cost
+→ simpan costUsd
+
+Pastikan proses cost calculation tidak membuat request API gagal.
+
+Jika pricing tidak ditemukan:
+- request tetap berhasil.
+- usage tetap tersimpan.
+- costUsd = null.
+- log/diagnostic boleh mencatat pricing missing tanpa membocorkan secret.
+
+10. USAGE DASHBOARD
+
+Update dashboard agar menampilkan:
+
+TOTAL:
+- Total Requests
+- Successful Requests
+- Failed Requests
+- Blocked Requests
+- Input Tokens
+- Output Tokens
+- Total Tokens
+- Total Cost USD
+
+PER PROVIDER:
+- Provider
+- Requests
+- Input Tokens
+- Output Tokens
+- Total Tokens
+- Cost USD
+
+PER MODEL:
+- Provider
+- Model
+- Requests
+- Input Tokens
+- Output Tokens
+- Total Tokens
+- Cost USD
+
+LOG DETAIL:
+- Timestamp
+- Provider
+- Model
+- Status
+- Input Tokens
+- Output Tokens
+- Total Tokens
+- Cost USD
+- Latency
+
+11. COST CONSISTENCY
+
+Pastikan:
+
+SUM(costUsd setiap usage record)
+=
+Total Cost Dashboard
+
+Dan:
+
+SUM(inputTokens)
+=
+Total Input Tokens
+
+SUM(outputTokens)
+=
+Total Output Tokens
+
+SUM(totalTokens)
+=
+Total Tokens
+
+Jangan menggunakan angka hardcode di dashboard.
+
+12. UNKNOWN PRICING
+
+Jika model tidak memiliki pricing:
+
+- tampilkan `N/A` atau `—`
+- jangan tampilkan `$0`
+- jangan menganggap model gratis
+- jangan menggunakan harga model lain sebagai fallback.
+
+Ini penting agar dashboard tidak memberikan biaya palsu.
+
+13. API ADMIN
+
+Audit endpoint existing.
+
+Jika sudah ada endpoint pricing:
+gunakan endpoint tersebut.
+
+Jika belum ada, tambahkan endpoint yang konsisten, misalnya:
+
+GET    /admin/pricing
+POST   /admin/pricing
+PUT    /admin/pricing/:id
+DELETE /admin/pricing/:id
+
+Sesuaikan dengan routing architecture existing.
+
+Jangan membuat endpoint duplikatif.
+
+14. SECURITY
+
+Pastikan pricing UI/API tidak dapat:
+- melihat API key provider
+- melihat Authorization header
+- melihat secret
+- mengubah credential provider
+
+Pricing hanya mengelola metadata harga.
+
+15. TESTING
+
+Tambahkan test untuk:
+
+- pricing lookup
+- exact provider + model matching
+- input cost calculation
+- output cost calculation
+- total cost calculation
+- null token handling
+- unknown pricing
+- duplicate pricing
+- invalid negative price
+- pricing update
+- pricing disable
+- historical usage
+- cost backfill jika dibuat
+- dashboard aggregation
+- provider aggregation
+- model aggregation
+- cost total consistency
+- request tetap sukses ketika pricing tidak tersedia.
+
+Gunakan contoh deterministik:
+
+input = 1,000,000
+output = 500,000
+input price = $1
+output price = $2
+
+Maka:
+
+input cost = $1
+output cost = $1
+total cost = $2
+
+16. REGRESSION
+
+Pastikan tidak merusak:
+
+- Provider Management
+- Enable/Disable Provider
+- API Key Management
+- Multiple API Keys
+- Key rotation
+- Model Registry
+- `/v1/models`
+- `/v1/chat/completions`
+- `/v1/responses`
+- streaming
+- Usage Tracking
+- Usage Logs
+- Usage Dashboard
+- Backup/Restore
+
+Jangan menjalankan atau menggunakan Gorouter sebagai fallback.
+
+17. VALIDATION
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+Jika menemukan failure:
+
+JANGAN hanya melaporkan.
+
+Cari penyebabnya dan langsung perbaiki jika memang disebabkan perubahan ini.
+
+Jangan mengubah test hanya agar test menjadi hijau.
+
+Setelah perbaikan, jalankan ulang test yang relevan dan full test suite.
+
+18. HASIL AKHIR
+
+Laporkan:
+
+- file yang diubah
+- pricing registry
+- pricing API
+- pricing UI
+- formula cost
+- historical usage handling
+- unknown pricing behavior
+- dashboard cost
+- test baru
+- lint
+- build
+- total test pass/fail/skip
+- bug yang ditemukan dan diperbaiki
+- masalah yang benar-benar masih tersisa
+
+PENTING:
+Jangan berhenti pada audit.
+Jika ada bug → langsung perbaiki → test ulang → lanjutkan sampai pipeline pricing konsisten.
+
+TARGET AKHIR:
+
+REAL REQUEST
+→ REAL PROVIDER
+→ REAL MODEL
+→ REAL INPUT TOKENS
+→ REAL OUTPUT TOKENS
+→ MODEL PRICING
+→ REAL COST USD
+→ USAGE STORE
+→ AGGREGATION
+→ ADMIN DASHBOARD
 
 
 ```
