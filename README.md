@@ -7,6 +7,232 @@
 
 
 ```
+# Prompt: Provider API Key Management — Final UI
+```
+
+Lanjutkan project `nvidia-api`.
+
+JANGAN hanya audit. Jika menemukan masalah, LANGSUNG PERBAIKI lalu test ulang.
+
+FOKUS:
+Selesaikan fitur API Key Management melalui UI admin.
+
+FITUR:
+
+1. PROVIDER API KEY LIST
+Pada halaman Provider/API Key Management tampilkan:
+- Provider
+- jumlah API key
+- status provider
+- status key aktif/nonaktif
+- masked key
+- createdAt
+- lastUsed jika tersedia
+
+JANGAN pernah menampilkan raw API key setelah disimpan.
+
+2. ADD API KEY
+
+Tambahkan tombol:
+
++ Add API Key
+
+Form:
+- Provider
+- API Key
+- optional label/name
+
+Saat submit:
+- validasi input
+- simpan menggunakan ApiKeyStore existing
+- jangan menyimpan duplicate key
+- jangan menampilkan raw key setelah save
+- refresh jumlah API key tanpa restart server.
+
+3. DELETE API KEY
+
+Setiap key memiliki tombol Delete.
+
+Flow:
+Delete
+→ confirmation
+→ hapus key
+→ update jumlah key
+→ refresh UI
+
+Jangan menghapus provider.
+
+4. KEY COUNT
+
+Tampilkan jumlah API key secara real-time:
+
+Example:
+NVIDIA
+API Keys: 3
+
+Pastikan count berasal dari storage sebenarnya,
+bukan angka hardcoded.
+
+5. ROTATION
+
+Pastikan multiple API key tetap menggunakan KeyManager/rotation existing.
+
+Contoh:
+
+Key A
+→ request 1
+
+Key B
+→ request 2
+
+Key C
+→ request 3
+
+Jangan membuat rotation system kedua.
+
+6. PROVIDER ISOLATION
+
+Key provider A tidak boleh digunakan provider B.
+
+Pastikan setiap request mendapatkan key dari provider yang benar.
+
+7. DISABLE PROVIDER
+
+Jika provider disabled:
+- request tidak boleh menggunakan API key provider tersebut
+- API key tetap tersimpan
+- jumlah key tetap benar
+
+Enable kembali:
+- key dapat digunakan lagi.
+
+8. DUPLICATE
+
+Jika API key yang sama ditambahkan dua kali:
+
+→ tolak
+→ jangan membuat record kedua.
+
+Pastikan duplicate detection tidak membocorkan raw key ke response/log.
+
+9. SECURITY
+
+Audit seluruh flow:
+
+- raw API key hanya diterima saat create
+- storage menggunakan mekanisme secure existing
+- logs hanya masked
+- API response hanya masked
+- dashboard hanya masked
+- backup tidak berisi raw key
+- error message tidak membocorkan key.
+
+10. UI
+
+Rapikan UI agar:
+- responsive mobile
+- provider card jelas
+- jumlah key terlihat
+- tombol Add Key mudah ditemukan
+- Delete memiliki confirmation
+- masked key mudah dibaca
+- loading/error/success state jelas.
+
+Jangan mengubah desain besar dashboard yang sudah ada.
+
+11. REGRESSION
+
+Pastikan tidak merusak:
+
+- Provider Management
+- Enable/Disable Provider
+- Model Registry
+- `/v1/models`
+- API request
+- streaming
+- Usage
+- Pricing
+- Cost calculation
+- Dashboard
+- Logs
+- Backup/Restore
+- existing KeyManager rotation.
+
+12. TEST
+
+Tambahkan/perbaiki test untuk:
+
+- add key
+- delete key
+- duplicate key
+- key count
+- masked key
+- provider isolation
+- multiple key rotation
+- disabled provider
+- enable provider
+- restart persistence
+- backup tidak mengandung raw key
+- API response tidak mengandung raw key.
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+JANGAN menjalankan atau memicu test Gorouter.app.
+
+Jika ada failure:
+LANGSUNG cari penyebab dan PERBAIKI.
+Jangan mengubah test hanya agar pass.
+
+13. FINAL CHECK
+
+Verifikasi:
+
+Provider NVIDIA
+→ 3 API keys
+→ UI menampilkan 3
+→ add key menjadi 4
+→ delete menjadi 3
+→ duplicate ditolak
+→ rotation tetap bekerja
+→ disable provider memblokir request
+→ enable provider memulihkan request
+→ restart tetap 3 keys.
+
+HASIL AKHIR:
+
+Laporkan:
+- file yang diubah
+- fitur Add API Key
+- Delete API Key
+- jumlah API key
+- duplicate protection
+- rotation
+- provider isolation
+- security audit
+- UI result
+- test pass/fail/skip
+- lint
+- build
+
+JANGAN:
+- membuat storage API key baru
+- membuat KeyManager kedua
+- menyimpan raw key di log
+- menampilkan raw key di UI
+- menggunakan Gorouter.app
+- membuat mock provider
+
+```
+# 
+```
+
+
+
+```
 # Prompt: Usage & Pricing Production Hardening
 ```
 
