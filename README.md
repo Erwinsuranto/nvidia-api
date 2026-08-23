@@ -7,10 +7,286 @@
 
 
 ```
-# 
+# Prompt: Usage & Pricing Production Hardening
 ```
 
+Lanjutkan project `nvidia-api`.
 
+JANGAN hanya audit. Jika menemukan masalah, LANGSUNG PERBAIKI lalu test ulang.
+
+Kondisi:
+- Pricing → token → costUsd → Usage Store → aggregation → Dashboard sudah terintegrasi.
+- Test terakhir: 552 passed, 0 failed, 20 skipped.
+- Jangan menjalankan atau memicu test Gorouter.app.
+
+FOKUS:
+Production hardening untuk memastikan usage dan cost tetap konsisten setelah restart, perubahan pricing, dan perubahan provider/model.
+
+1. AUDIT RUNTIME
+
+Periksa seluruh runtime flow:
+
+REQUEST
+→ PROVIDER
+→ MODEL
+→ TOKEN USAGE
+→ PRICING
+→ COST
+→ USAGE STORE
+→ AGGREGATION
+→ ADMIN API
+→ DASHBOARD
+
+Jika ada jalur yang masih menghitung cost sendiri atau menggunakan data berbeda:
+langsung perbaiki agar menggunakan sumber yang sama.
+
+2. RESTART CONSISTENCY
+
+Test:
+
+server start
+→ pricing load
+→ request
+→ cost benar
+
+restart server
+→ request baru
+→ cost tetap benar
+
+Pastikan pricing tidak kembali ke default/hardcoded setelah restart.
+
+3. PRICING UPDATE
+
+Test:
+
+Pricing A
+→ request
+→ cost A
+
+ubah pricing menjadi B
+→ request baru
+→ cost B
+
+request lama:
+→ tetap menggunakan cost yang sudah tercatat.
+
+Jangan menghitung ulang historical cost secara otomatis kecuali memang melalui mekanisme backfill resmi.
+
+4. UNKNOWN PRICING
+
+Untuk model yang belum mempunyai pricing:
+
+costUsd = null
+
+Dashboard harus menampilkan:
+
+N/A
+
+bukan:
+
+$0
+
+Jangan menganggap model tanpa pricing sebagai model gratis.
+
+5. PROVIDER/MODEL ISOLATION
+
+Pastikan pricing exact-match berdasarkan:
+
+provider + exact model ID
+
+Contoh:
+
+provider A + model X
+tidak boleh memakai harga:
+
+provider B + model X
+
+atau:
+
+provider A + model Y.
+
+Jika ditemukan fallback pricing yang berpotensi salah:
+langsung perbaiki.
+
+6. API KEY ROTATION REGRESSION
+
+Pastikan fitur API Key Management yang sudah dibuat tetap bekerja:
+
+- add API key
+- delete API key
+- jumlah API key
+- key masking
+- duplicate protection
+- rotation/round-robin existing
+- provider isolation
+
+Perubahan API key tidak boleh mengubah:
+- usage token
+- model
+- pricing
+- cost calculation.
+
+7. USAGE DASHBOARD
+
+Pastikan dashboard menampilkan konsisten:
+
+Total Requests
+Successful
+Failed
+Blocked
+
+Input Tokens
+Output Tokens
+Total Tokens
+
+Total Cost
+
+Provider Cost
+Model Cost
+
+Pastikan:
+
+Dashboard Total Cost
+=
+SUM(costUsd yang valid)
+
+Record dengan `costUsd = null`
+tidak dihitung sebagai $0.
+
+8. API RESPONSE
+
+Periksa endpoint admin usage/dashboard.
+
+Pastikan nilai:
+- token
+- request count
+- cost
+- provider
+- model
+
+menggunakan sumber data yang sama.
+
+Jangan membuat endpoint duplikatif.
+
+9. PRECISION
+
+Pastikan perhitungan cost tidak mengalami masalah floating-point.
+
+Gunakan precision yang konsisten.
+
+Test minimal:
+
+input = 1,000,000
+output = 500,000
+input price = $1/1M
+output price = $2/1M
+
+Expected:
+
+input cost = $1
+output cost = $1
+total = $2
+
+10. DATA INTEGRITY
+
+Pastikan satu request hanya menghasilkan satu usage record.
+
+Jangan terjadi:
+- duplicate usage
+- duplicate cost
+- double aggregation.
+
+Test request success, error, blocked, dan streaming.
+
+11. STREAMING
+
+Pastikan streaming:
+
+- tidak menghasilkan duplicate usage
+- tidak kehilangan usage jika upstream memberikan usage
+- tetap null jika upstream tidak memberikan usage
+- tidak mengganggu response stream.
+
+12. SECURITY
+
+Audit:
+
+- API key tidak masuk log
+- Authorization header tidak disimpan
+- provider credential tidak masuk usage
+- dashboard tidak menampilkan raw secret
+- backup tetap tidak berisi credential.
+
+Jika menemukan kebocoran:
+langsung perbaiki.
+
+13. TEST
+
+Tambahkan regression test jika diperlukan untuk:
+
+- restart pricing
+- pricing update
+- historical cost
+- unknown pricing
+- exact provider/model match
+- duplicate usage
+- API key rotation
+- dashboard total
+- provider aggregation
+- model aggregation
+- streaming usage.
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+Jangan menjalankan test Gorouter.app.
+
+Jika ada failure:
+langsung cari penyebab sebenarnya dan perbaiki.
+
+Jangan mengubah test hanya agar pass.
+
+14. FINAL VERIFICATION
+
+Verifikasi satu request dari awal sampai akhir:
+
+request
+→ provider
+→ exact model
+→ input token
+→ output token
+→ total token
+→ pricing
+→ costUsd
+→ usage record
+→ provider aggregation
+→ model aggregation
+→ dashboard.
+
+Pastikan semua angka identik.
+
+HASIL AKHIR:
+
+Laporkan:
+- file yang diubah
+- bug yang ditemukan
+- bug yang diperbaiki
+- hasil restart test
+- pricing update test
+- unknown pricing
+- duplicate usage check
+- API key regression
+- dashboard verification
+- security audit
+- lint
+- build
+- test pass/fail/skip.
+
+JANGAN berhenti pada audit.
+Jika ada salah → PERBAIKI → TEST ULANG.
 
 ```
 
