@@ -42,11 +42,661 @@
 
 ```
 
-# 
+# Prompt 12 — Full Usage Token → Pricing → Cost Audit & Fix
 ```
 
 
+Lakukan FULL AUDIT + FIX pada seluruh jalur Usage di project `nvidia-api`.
 
+TUJUAN UTAMA:
+
+Pastikan seluruh request API memiliki alur data yang benar:
+
+MODEL REQUEST
+→ PROVIDER
+→ INPUT/PROMPT TOKENS
+→ OUTPUT/COMPLETION TOKENS
+→ TOTAL TOKENS
+→ MODEL PRICING
+→ INPUT COST
+→ OUTPUT COST
+→ TOTAL COST
+→ USAGE STORAGE
+→ AGGREGATION
+→ ADMIN DASHBOARD
+
+PENTING:
+Jika menemukan bug, ketidakkonsistenan, perhitungan salah, data null yang seharusnya dapat dihitung, atau dashboard membaca sumber data yang salah:
+→ LANGSUNG PERBAIKI SOURCE CODE.
+Jangan hanya membuat laporan audit.
+
+Jangan menunggu prompt berikutnya untuk memperbaiki bug yang ditemukan.
+
+==================================================
+1. AUDIT SELURUH JALUR USAGE
+==================================================
+
+Audit semua source yang berhubungan dengan:
+
+- src/lib/usage-store.ts
+- src/lib/pricing.ts
+- src/services/stream-usage.ts
+- src/services/provider.ts
+- src/lib/model-registry.ts
+- src/routes/admin.ts
+- src/admin/dashboard.ts
+- src/admin/index.html
+- src/admin/styles.css
+- seluruh service/request handler yang mencatat usage
+- seluruh test usage/pricing/cost/dashboard
+
+Cari semua tempat yang:
+- membuat usage record
+- mengubah usage record
+- menghitung token
+- menghitung cost
+- mengambil pricing
+- melakukan aggregation
+- mengirim data ke dashboard
+
+Jangan hanya mengikuti satu jalur request.
+Audit semua jalur request yang ada.
+
+==================================================
+2. TOKEN SOURCE OF TRUTH
+==================================================
+
+Pastikan token selalu berasal dari usage asli provider/API jika tersedia.
+
+Field yang harus konsisten:
+
+inputTokens / promptTokens
+outputTokens / completionTokens
+totalTokens
+
+Validasi:
+
+totalTokens = inputTokens + outputTokens
+
+Jika upstream memberikan total_tokens:
+- bandingkan dengan hasil penjumlahan.
+- gunakan nilai upstream jika memang menjadi source of truth project.
+- jika berbeda, jangan diam-diam menyembunyikan discrepancy.
+- perbaiki mapping yang menyebabkan perbedaan.
+
+Jika provider tidak memberikan usage:
+- jangan mengarang token.
+- jangan melakukan estimasi kecuali project memang sudah memiliki mekanisme resmi yang sengaja digunakan.
+- simpan null sesuai schema existing.
+
+Pastikan mapping usage konsisten untuk:
+- NVIDIA
+- TokenHarbor
+- provider lain yang sudah terdaftar
+- non-streaming
+- streaming
+- success
+- error
+- blocked
+
+==================================================
+3. PRICING AUDIT
+==================================================
+
+Audit `src/lib/pricing.ts` dan seluruh sumber pricing.
+
+Pastikan pricing berdasarkan:
+
+provider + exact model ID
+
+Jangan hanya berdasarkan nama model yang tampil di UI.
+
+Untuk setiap model yang memiliki pricing, pastikan tersedia:
+
+- input price
+- output price
+- unit pricing
+- currency jika memang tersedia
+- source/version pricing jika struktur project mendukungnya
+
+Jangan menggunakan harga palsu.
+
+Jangan mengasumsikan semua model memiliki harga yang sama.
+
+Jangan menggunakan harga model lain sebagai fallback secara diam-diam.
+
+Jika model benar-benar gratis:
+- pricing harus secara eksplisit menunjukkan free/zero sesuai metadata pricing yang benar.
+
+Jika harga model tidak diketahui:
+- cost harus `null` / `N/A` sesuai schema existing.
+- JANGAN menganggap unknown = $0.
+
+==================================================
+4. COST CALCULATION
+==================================================
+
+Audit dan perbaiki perhitungan cost.
+
+Gunakan formula yang sesuai dengan unit pricing.
+
+Jika pricing menggunakan USD per 1M token:
+
+inputCost =
+(inputTokens / 1_000_000) * inputPrice
+
+outputCost =
+(outputTokens / 1_000_000) * outputPrice
+
+totalCost =
+inputCost + outputCost
+
+Pastikan:
+- tidak integer division
+- tidak salah unit
+- tidak membulatkan token sebelum perhitungan
+- tidak double count
+- tidak menghitung total token dengan harga input saja
+- output token menggunakan output price
+- input token menggunakan input price
+
+Gunakan decimal/number handling yang cukup aman untuk nilai cost kecil.
+
+Jangan membulatkan terlalu awal.
+
+Jika input/output token null:
+- jangan membuat cost palsu.
+
+Jika pricing null:
+- cost tetap null/N/A.
+
+==================================================
+5. PER-REQUEST COST
+==================================================
+
+Setiap usage record yang dapat dihitung harus memiliki cost yang konsisten.
+
+Minimal:
+
+inputTokens
+outputTokens
+totalTokens
+inputCost
+outputCost
+totalCost
+
+Pastikan cost dihitung berdasarkan:
+
+exact provider
++
+exact model
++
+actual token usage
++
+pricing yang benar.
+
+Jangan menghitung cost hanya di frontend.
+
+Backend/storage harus menjadi source of truth.
+
+Frontend hanya menampilkan hasil yang sudah dihitung.
+
+==================================================
+6. HISTORICAL USAGE RECORDS
+==================================================
+
+Audit record lama.
+
+Temuan sebelumnya menunjukkan:
+- ada production records dengan `costUsd: null`
+- sebagian record lama memiliki costUsd float
+- sebagian model belum memiliki pricing registry.
+
+Periksa seluruh record existing.
+
+Jika token dan pricing tersedia:
+- lakukan safe recalculation cost.
+- jangan mengubah token asli.
+- jangan mengubah provider/model asli.
+- jangan mengubah timestamp asli.
+
+Jika pricing tidak tersedia:
+- tetap null/N/A.
+- jangan membuat angka.
+
+Jika record lama memiliki cost yang salah:
+- perbaiki berdasarkan token + pricing yang benar.
+
+Pastikan migration/recalculation aman dan idempotent.
+
+Menjalankan recalculation dua kali tidak boleh menggandakan cost.
+
+==================================================
+7. STREAMING USAGE
+==================================================
+
+Audit jalur streaming secara khusus.
+
+Pastikan:
+
+stream request
+→ usage collection
+→ final usage
+→ token extraction
+→ pricing
+→ cost
+→ usage record
+
+Jika final streaming chunk memberikan usage:
+- gunakan usage tersebut.
+
+Jika final chunk `usage: null`:
+- jangan mengarang token.
+- cost tetap null jika token tidak tersedia.
+
+Jangan sampai streaming menghasilkan:
+- duplicate usage record
+- duplicate cost
+- double request count
+- cost dihitung dua kali.
+
+==================================================
+8. ERROR & BLOCKED REQUEST
+==================================================
+
+Pastikan request berikut tidak salah dihitung sebagai successful paid usage:
+
+- invalid model
+- provider disabled
+- blocked request
+- authentication failure
+- validation failure
+- upstream error sebelum usage tersedia
+
+Audit apakah error request yang memiliki sebagian usage memang harus dihitung sesuai arsitektur existing.
+
+Jangan menganggap semua HTTP request = billable success.
+
+Pastikan status:
+
+success
+error
+blocked
+
+tetap dibedakan.
+
+==================================================
+9. PROVIDER + MODEL CONSISTENCY
+==================================================
+
+Untuk setiap usage record:
+
+provider harus berasal dari provider yang benar-benar menangani request.
+
+model harus exact model ID yang benar-benar digunakan.
+
+Pricing lookup harus menggunakan provider + exact model.
+
+Jangan sampai:
+
+request model A
+→ log model A
+→ pricing model B.
+
+Tambahkan regression test untuk kasus ini.
+
+==================================================
+10. DASHBOARD SOURCE OF TRUTH
+==================================================
+
+Audit dashboard.
+
+Dashboard TIDAK BOLEH menghitung ulang cost dengan formula berbeda dari backend.
+
+Dashboard harus mengambil hasil aggregation dari usage service/backend.
+
+Periksa:
+
+- Total Requests
+- Successful Requests
+- Failed Requests
+- Blocked Requests
+- Input Tokens
+- Output Tokens
+- Total Tokens
+- Total Cost
+- Cost per Provider
+- Cost per Model
+- Cost per API Key/client jika tersedia
+- Average latency
+
+Pastikan:
+
+Dashboard Total Cost
+=
+sum(valid usage record totalCost)
+
+Jangan:
+
+Dashboard menghitung harga sendiri dari token dengan formula berbeda.
+
+==================================================
+11. PROVIDER BREAKDOWN
+==================================================
+
+Per provider tampilkan:
+
+Provider
+Requests
+Success
+Error
+Blocked
+Input Tokens
+Output Tokens
+Total Tokens
+Total Cost
+
+Pastikan aggregation provider menggunakan exact provider ID.
+
+==================================================
+12. MODEL BREAKDOWN
+==================================================
+
+Per model tampilkan:
+
+Provider
+Model
+Requests
+Success
+Error
+Blocked
+Input Tokens
+Output Tokens
+Total Tokens
+Input Cost
+Output Cost
+Total Cost
+
+Pastikan model yang sama dari provider berbeda tidak tercampur.
+
+Contoh:
+
+providerA/model-x
+dan
+providerB/model-x
+
+harus menjadi dua pricing context berbeda.
+
+==================================================
+13. UNKNOWN PRICING
+==================================================
+
+Jangan menyembunyikan model yang belum memiliki pricing.
+
+Dashboard harus dapat membedakan:
+
+Known pricing
+→ cost tersedia
+
+Unknown pricing
+→ cost N/A/null
+
+Free model
+→ cost $0 jika benar-benar dikonfigurasi sebagai free.
+
+Jangan:
+
+unknown pricing = $0
+
+karena itu membuat total biaya menjadi salah.
+
+Jika perlu tambahkan field:
+
+pricingStatus:
+- known
+- free
+- unknown
+
+Gunakan pola schema yang paling kompatibel dengan project existing.
+
+==================================================
+14. API RESPONSE
+==================================================
+
+Audit endpoint:
+
+/admin/usage
+/admin/usage/providers
+/admin/usage/models
+/admin/usage/records
+/admin/logs
+
+Pastikan response memiliki data cost yang konsisten.
+
+Jangan membuat endpoint duplikatif.
+
+Pertahankan kompatibilitas endpoint existing.
+
+==================================================
+15. PRECISION & ROUNDING
+==================================================
+
+Audit seluruh pembulatan cost.
+
+Jangan membulatkan:
+
+input token
+output token
+total token
+
+sebelum calculation.
+
+Cost boleh diformat untuk UI, misalnya:
+
+$0.00012345
+
+tetapi nilai internal harus mempertahankan precision yang cukup.
+
+Pastikan aggregation menggunakan nilai internal, bukan angka yang sudah diformat UI.
+
+==================================================
+16. TEST WAJIB
+==================================================
+
+Tambahkan/perbaiki test untuk:
+
+1. token extraction success
+2. total token calculation
+3. provider/model mapping
+4. pricing lookup
+5. input cost calculation
+6. output cost calculation
+7. total cost calculation
+8. free model
+9. unknown pricing
+10. null token usage
+11. streaming usage
+12. streaming usage null
+13. duplicate streaming protection
+14. provider aggregation
+15. model aggregation
+16. total cost aggregation
+17. historical cost recalculation
+18. idempotent recalculation
+19. blocked request
+20. invalid model
+21. upstream error
+22. dashboard cost consistency
+23. provider A/model X vs provider B/model X
+24. precision calculation
+
+==================================================
+17. REAL DATA VALIDATION
+==================================================
+
+Gunakan data usage existing untuk memverifikasi hasil.
+
+Jangan membuat fake production records hanya untuk membuat test hijau.
+
+Ambil beberapa record existing dan hitung manual:
+
+input tokens
++
+output tokens
+=
+total tokens
+
+Kemudian:
+
+input tokens × input price
++
+output tokens × output price
+=
+total cost
+
+Bandingkan dengan hasil backend.
+
+Jika berbeda:
+→ cari sumber bug
+→ perbaiki source code
+→ jalankan test ulang.
+
+==================================================
+18. SECURITY
+==================================================
+
+Pastikan audit/fix ini tidak menyebabkan:
+
+- API key masuk log
+- Authorization header masuk usage
+- provider secret masuk dashboard
+- raw credential masuk backup
+- prompt/completion sensitif ditampilkan tanpa kebutuhan.
+
+==================================================
+19. REGRESSION
+==================================================
+
+Jangan merusak:
+
+- Provider Management
+- Enable/Disable Provider
+- API Key Management
+- Model Registry
+- `/v1/models`
+- `/v1/chat/completions`
+- `/v1/responses`
+- streaming
+- Usage Tracking
+- Usage Logs
+- Pricing
+- Dashboard
+- Backup/Restore
+
+Jangan melakukan refactor besar jika tidak diperlukan.
+
+==================================================
+20. TEST COMMAND
+==================================================
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+PENTING:
+
+Jangan menjalankan atau memicu test/integration test Gorouter.app.
+
+Jika test suite otomatis menemukan test Gorouter:
+- skip/exclude test tersebut.
+- jangan mengubah test Gorouter hanya agar lulus.
+- laporkan jumlah test yang di-skip.
+
+NVIDIA dan TokenHarbor boleh dites jika diperlukan untuk validasi jalur usage.
+
+==================================================
+21. AUTO-FIX RULE
+==================================================
+
+INI WAJIB.
+
+Jika menemukan masalah:
+
+JANGAN hanya menulis:
+
+"Found issue: ..."
+
+Tetapi:
+
+1. identifikasi root cause
+2. perbaiki source code
+3. tambahkan/perbaiki regression test
+4. jalankan test
+5. jika test gagal, perbaiki lagi
+6. audit ulang jalur yang terkena perubahan.
+
+Jangan berhenti pada audit report jika bug dapat diperbaiki secara aman.
+
+==================================================
+22. FINAL VERIFICATION
+==================================================
+
+Setelah semua perbaikan selesai, verifikasi alur penuh:
+
+REAL REQUEST
+→ PROVIDER
+→ MODEL
+→ TOKEN USAGE
+→ USAGE RECORD
+→ PRICING LOOKUP
+→ INPUT COST
+→ OUTPUT COST
+→ TOTAL COST
+→ AGGREGATION
+→ ADMIN API
+→ DASHBOARD
+
+Pastikan semua menggunakan source of truth yang sama.
+
+==================================================
+23. HASIL AKHIR
+==================================================
+
+Laporkan:
+
+- root cause yang ditemukan
+- file yang diperbaiki
+- perubahan yang dilakukan
+- token calculation
+- pricing lookup
+- input cost
+- output cost
+- total cost
+- historical records yang berhasil diperbaiki
+- record yang tetap N/A dan alasannya
+- streaming handling
+- dashboard calculation
+- provider aggregation
+- model aggregation
+- test baru/perbaikan
+- npm run lint
+- npm run build
+- npm test
+- jumlah pass/fail/skip
+- regression yang diverifikasi
+- masalah yang masih tersisa
+
+PENTING:
+
+Jangan mengarang pricing.
+Jangan mengarang token.
+Jangan menganggap unknown pricing sebagai $0.
+Jangan menghitung cost berbeda antara backend dan dashboard.
+Jangan hanya audit — SETIAP BUG YANG DITEMUKAN DAN AMAN DIPERBAIKI HARUS LANGSUNG DIPERBAIKI.
+Jangan membocorkan credential.
+Jangan menjalankan test Gorouter.app.
 ```
 
 # Prompt: Provider API Key — Full Integration Audit
