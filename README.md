@@ -75,9 +75,886 @@
 
 ```
 
-# 
+# Prompt — Implementasi UI Mengikuti Design Reference
 ```
+PROMPT — IMPLEMENT ADMIN DASHBOARD UI SESUAI DESIGN REFERENCE
 
+Project: `nvidia-api`
+
+Gunakan file design reference yang sudah disimpan sebelumnya:
+
+`docs/design/admin-dashboard-reference.png`
+
+Gambar tersebut adalah REFERENSI VISUAL UTAMA dan harus menjadi acuan utama untuk redesign Admin Dashboard.
+
+TUJUAN:
+Ubah UI Admin Dashboard `nvidia-api` agar mengikuti desain pada reference secara konsisten.
+
+PENTING:
+Jangan hanya mengganti warna.
+Ikuti struktur layout, spacing, ukuran komponen, typography, card, button, navigation, icon, status badge, dan hierarchy visual seperti pada reference.
+
+==================================================
+1. DESIGN STYLE
+==================================================
+
+Gunakan LIGHT THEME.
+
+Karakter utama:
+- background putih / sangat terang
+- primary color blue
+- dark navy untuk heading/text utama
+- secondary text abu-abu/biru muda
+- card putih
+- border tipis
+- shadow sangat ringan
+- border radius modern
+- spacing lega
+- tampilan clean
+- profesional
+- modern SaaS/Admin Dashboard
+- tidak menggunakan dark background
+- jangan menggunakan gradient berlebihan
+- jangan menggunakan efek glow berlebihan
+
+Primary blue harus menjadi warna utama action dan navigation aktif.
+
+Status:
+- ENABLED / Operational → hijau
+- Disabled / Error → merah
+- Warning → amber/orange
+- Information → blue
+
+==================================================
+2. GLOBAL LAYOUT
+==================================================
+
+Gunakan layout seperti reference:
+
+┌──────────────────────────────────────────────────────┐
+│ SIDEBAR │ HEADER / TOP BAR                           │
+│         ├────────────────────────────────────────────┤
+│         │ PAGE CONTENT                               │
+│         │                                            │
+│         │                                            │
+└──────────────────────────────────────────────────────┘
+
+SIDEBAR:
+- fixed/sticky di sisi kiri
+- lebar konsisten
+- background putih
+- border kanan tipis
+- logo dan branding di bagian atas
+- menu vertical
+- active menu menggunakan background biru sangat muda + indicator biru
+- icon + text
+- spacing antar menu rapi
+
+HEADER:
+- berada di sebelah kanan sidebar
+- background putih
+- border bawah tipis
+- hamburger/sidebar toggle
+- breadcrumb
+- search
+- refresh
+- system status
+- admin profile
+
+CONTENT:
+- berada di sebelah kanan sidebar
+- padding konsisten
+- responsive
+- tidak terlalu rapat dengan sidebar/header
+
+==================================================
+3. SIDEBAR
+==================================================
+
+Ikuti struktur reference.
+
+Branding:
+
+nvidia-api
+ADMIN DASHBOARD
+
+Gunakan logo/icon sederhana yang profesional.
+
+Menu utama:
+
+Overview
+Providers
+API Key Management
+Model Registry
+Usage Dashboard
+Usage Logs
+Pricing Management
+Backup & Restore
+System Settings
+
+Setiap menu:
+- icon
+- label
+- hover state
+- active state
+- disabled state jika diperlukan
+
+ACTIVE MENU:
+- text blue
+- icon blue
+- background light blue
+- indicator biru pada sisi kiri
+- border radius sesuai reference
+
+JANGAN membuat sidebar terlalu gelap.
+
+==================================================
+4. HEADER
+==================================================
+
+Header mengikuti reference.
+
+Komponen:
+
+A. Sidebar Toggle
+- button kecil
+- rounded
+- icon hamburger
+
+B. Breadcrumb
+
+Contoh:
+
+Providers  >  Provider Management
+
+C. Search
+
+Placeholder:
+
+Search...
+
+Shortcut:
+
+Ctrl + K
+
+Search harus terlihat seperti input/button modern dengan icon search.
+
+D. Refresh Button
+- icon refresh
+- compact
+- tooltip bila diperlukan
+
+E. System Status
+
+Contoh:
+
+● System Operational
+
+Gunakan:
+- green indicator
+- text dark
+- border ringan
+
+F. Admin Profile
+
+Contoh:
+
+A
+admin
+Administrator
+⌄
+
+Gunakan avatar lingkaran biru.
+
+==================================================
+5. PROVIDER MANAGEMENT PAGE
+==================================================
+
+Halaman Provider Management harus mengikuti reference.
+
+Header:
+
+Provider Management
+
+Subtitle:
+
+Manage and configure your AI providers and their API connections.
+
+Di kanan:
+
++ Add Provider
+
+Button:
+- primary blue
+- white text
+- rounded
+- icon plus
+- ukuran compact seperti reference
+
+==================================================
+6. PROVIDER CARD
+==================================================
+
+Provider card adalah bagian penting.
+
+Gunakan grid:
+
+Desktop:
+3 kolom
+
+Tablet:
+2 kolom
+
+Mobile:
+1 kolom
+
+Card:
+- background putih
+- border tipis
+- radius modern
+- shadow sangat ringan
+- padding konsisten
+- tinggi card seragam
+- jangan membuat card terlalu besar
+
+Struktur card:
+
+┌─────────────────────────────────────┐
+│ ICON  Provider Name     ENABLED     │
+│       provider.domain               │
+│                                     │
+│ ◇ Models   🔧 API Keys   ⚡ Requests │
+│                                     │
+│ [Manage API Keys] [Disable] + 1030 │
+└─────────────────────────────────────┘
+
+Provider header:
+- provider icon/logo
+- provider name
+- provider domain
+- status badge
+
+Status badge:
+
+● ENABLED
+
+Gunakan:
+- green text
+- light green background
+- green border
+
+==================================================
+7. PROVIDER STATISTICS
+==================================================
+
+Setiap provider card menampilkan:
+
+Models
+API Keys
+Requests
+
+Contoh:
+
+1050
+Models
+
+9
+API Keys
+
+1800
+Requests
+
+Gunakan icon berbeda untuk setiap statistik.
+
+Models:
+- cube icon
+- blue
+
+API Keys:
+- wrench/key icon
+- blue
+
+Requests:
+- lightning icon
+- green
+
+Buat ketiga statistik sejajar dan mudah dibaca.
+
+==================================================
+8. PROVIDER ACTIONS
+==================================================
+
+Bagian bawah provider card:
+
+[ Manage API Keys ]
+
+[ Disable ]
+
++ 1030 models
+
+Manage API Keys:
+- outline blue
+- white/light background
+- blue text
+
+Disable:
+- outline merah
+- red text
+- jangan menggunakan solid red sebagai default
+
+Jumlah model tambahan:
+- blue text
+- aligned ke kanan
+
+Jika provider disabled:
+
+[ Enable ]
+
+Gunakan style yang konsisten.
+
+JANGAN menghapus data provider/model ketika Disable.
+
+==================================================
+9. PROVIDER ICON
+==================================================
+
+Gunakan icon/logo provider yang tersedia secara aman.
+
+Jika provider memiliki logo:
+- tampilkan logo
+
+Jika tidak memiliki logo:
+- gunakan fallback icon/avatar yang konsisten.
+
+Jangan membuat logo palsu yang menyerupai trademark secara tidak perlu.
+
+Pastikan icon:
+- ukuran konsisten
+- posisi konsisten
+- tidak merusak layout
+
+==================================================
+10. SYSTEM STATUS CARD
+==================================================
+
+Sidebar bagian bawah mengikuti reference.
+
+Card:
+
+System Status
+
+● Operational
+
+Uptime
+
+7d 14h 32m
+
+Gunakan:
+- white background
+- border
+- rounded
+- padding
+- green status indicator
+
+Data harus berasal dari backend/runtime jika sudah tersedia.
+
+Jangan hardcode uptime.
+
+==================================================
+11. FOOTER / SIDEBAR VERSION
+==================================================
+
+Tampilkan:
+
+© 2024 nvidia-api
+v1.0.0
+
+Tetapi jika project sudah memiliki version aktual:
+gunakan version aktual dari project.
+
+Jangan hardcode versi jika backend/package.json sudah menyediakan versi.
+
+==================================================
+12. INFO BAR
+==================================================
+
+Di bawah provider grid, tambahkan information bar seperti reference:
+
+ⓘ Click on “Manage API Keys” to view and manage the API keys for each provider.
+
+Gunakan:
+- background sangat light blue
+- border tipis
+- icon information
+- text dark blue
+- rounded corners
+
+==================================================
+13. API KEY MANAGEMENT
+==================================================
+
+Semua halaman API Key Management juga harus mengikuti design system yang sama.
+
+Jangan membuat halaman API Key dengan desain berbeda.
+
+Gunakan:
+- light background
+- card putih
+- blue primary action
+- red danger action
+- rounded input
+- clean table
+- status badge
+- consistent spacing
+
+SECURITY:
+
+Raw API key/provider credential JANGAN ditampilkan.
+
+Gunakan masking.
+
+Contoh:
+
+sk-••••••••••••••••1234
+
+Jangan menampilkan secret penuh.
+
+==================================================
+14. MODEL REGISTRY
+==================================================
+
+Model Registry harus mengikuti design reference.
+
+Gunakan:
+- white cards/table
+- blue headings
+- clean filters
+- provider badge
+- model name
+- model ID
+- status
+- actions
+
+Jangan mengubah data/model registry hanya untuk kebutuhan UI.
+
+==================================================
+15. USAGE DASHBOARD
+==================================================
+
+Usage Dashboard juga harus mengikuti design system yang sama.
+
+Gunakan cards untuk:
+
+Total Requests
+Successful
+Failed
+Blocked
+Input Tokens
+Output Tokens
+Total Tokens
+Average Latency
+
+Gunakan hierarchy yang jelas.
+
+Jangan membuat dashboard dark.
+
+Chart jika sudah tersedia:
+- gunakan style clean
+- background putih
+- blue sebagai primary
+- green untuk success
+- red untuk error
+- grid/chart tidak terlalu ramai.
+
+==================================================
+16. USAGE LOGS
+==================================================
+
+Usage Logs harus menggunakan table modern seperti SaaS dashboard.
+
+Kolom minimal:
+
+Timestamp
+Provider
+Model
+Status
+HTTP Status
+Input Tokens
+Output Tokens
+Total Tokens
+Latency
+
+Status menggunakan badge:
+
+SUCCESS
+ERROR
+BLOCKED
+
+Gunakan pagination.
+
+Jangan menampilkan API key/credential secara penuh.
+
+==================================================
+17. PRICING MANAGEMENT
+==================================================
+
+Pricing Management harus menggunakan design system yang sama.
+
+Gunakan:
+- clean cards/table
+- blue primary action
+- input modern
+- status badge
+- edit/delete action
+
+Jangan mengubah logic pricing yang sudah ada.
+
+UI saja yang disesuaikan jika tidak diperlukan perubahan backend.
+
+==================================================
+18. BACKUP & RESTORE
+==================================================
+
+Backup & Restore mengikuti design system yang sama.
+
+Gunakan:
+- backup cards/table
+- timestamp
+- size
+- record count
+- version
+- status
+- Backup button
+- Restore button
+- Delete button jika fitur existing memang ada
+
+Restore harus tetap memiliki confirmation dialog.
+
+Jangan mengubah mekanisme backup/restore hanya karena redesign UI.
+
+==================================================
+19. SYSTEM SETTINGS
+==================================================
+
+System Settings mengikuti style yang sama.
+
+Gunakan section/card:
+
+General
+Security
+Provider
+Usage
+System
+
+Gunakan:
+- labels
+- descriptions
+- switches
+- buttons
+- clean form controls
+
+==================================================
+20. RESPONSIVE
+==================================================
+
+WAJIB responsive.
+
+Desktop:
+- sidebar tetap terlihat
+- provider grid 3 kolom
+
+Tablet:
+- sidebar dapat collapse
+- provider grid 2 kolom
+
+Mobile:
+- sidebar menjadi drawer
+- provider grid 1 kolom
+- header menyesuaikan
+- card tidak overflow
+- table menjadi responsive/scroll jika diperlukan
+
+Tidak boleh ada:
+- horizontal overflow yang tidak diperlukan
+- card terpotong
+- button keluar layar
+- text overlap
+
+==================================================
+21. NAVIGATION RULE
+==================================================
+
+INI SANGAT PENTING.
+
+Sidebar dan Header TIDAK BOLEH memiliki fungsi navigasi yang sama.
+
+SIDEBAR:
+→ navigasi halaman utama aplikasi.
+
+HEADER:
+→ global controls dan context:
+- sidebar toggle
+- breadcrumb
+- search
+- refresh
+- system status
+- profile
+
+Jangan membuat duplicate menu navigation di header.
+
+==================================================
+22. DESIGN CONSISTENCY
+==================================================
+
+Semua halaman harus terlihat sebagai SATU aplikasi.
+
+Gunakan design token/komponen reusable untuk:
+
+- colors
+- typography
+- spacing
+- border radius
+- shadows
+- buttons
+- inputs
+- cards
+- badges
+- tables
+- modals
+- icons
+- navigation
+
+Jangan membuat style berbeda-beda per halaman.
+
+Jika project menggunakan Tailwind/CSS variables/component system:
+gunakan sistem existing tersebut.
+
+Jangan membuat CSS duplicate jika component existing dapat digunakan kembali.
+
+==================================================
+23. FUNCTIONALITY PRESERVATION
+==================================================
+
+PENTING:
+
+Redesign UI TIDAK BOLEH merusak functionality.
+
+Pertahankan:
+
+- Provider Management
+- Enable/Disable Provider
+- API Key Management
+- Model Registry
+- `/v1/models`
+- Usage Tracking
+- Usage Dashboard
+- Usage Logs
+- Pricing
+- Backup
+- Restore
+- Admin API
+- streaming
+- existing provider integrations
+
+Jangan mengubah API/backend hanya untuk mempercantik UI jika tidak diperlukan.
+
+==================================================
+24. DATA HARUS REAL
+==================================================
+
+Jangan menggunakan:
+
+- dummy provider
+- dummy model
+- fake request count
+- fake API key count
+- fake uptime
+- fake token usage
+- fake pricing
+
+Semua data harus berasal dari backend/API/storage existing.
+
+Jika data belum tersedia:
+- tampilkan empty state yang baik
+- jangan mengarang angka.
+
+==================================================
+25. ACCESSIBILITY
+==================================================
+
+Pastikan:
+
+- button memiliki label
+- icon-only button memiliki tooltip/aria-label
+- contrast text cukup
+- focus state terlihat
+- keyboard navigation dapat digunakan
+- form input memiliki label
+- modal dapat ditutup dengan keyboard jika existing system mendukungnya
+
+==================================================
+26. PERFORMANCE
+==================================================
+
+Jangan membuat redesign menyebabkan:
+
+- request API tambahan yang tidak diperlukan
+- polling berlebihan
+- rendering provider berulang tanpa alasan
+- loading seluruh logs sekaligus
+
+Gunakan API existing.
+
+==================================================
+27. IMPLEMENTATION RULE
+==================================================
+
+Sebelum coding:
+
+1. Audit struktur frontend existing.
+2. Temukan entry point Admin Dashboard.
+3. Temukan routing.
+4. Temukan component/layout existing.
+5. Temukan CSS/design system existing.
+6. Temukan API client yang digunakan UI.
+
+Kemudian implementasikan redesign dengan memanfaatkan struktur existing.
+
+Jangan membuat frontend kedua.
+
+Jangan membuat duplicate Admin Dashboard.
+
+Jangan mengganti framework existing.
+
+Jangan melakukan refactor besar yang tidak diperlukan.
+
+==================================================
+28. REFERENCE MATCH
+==================================================
+
+Gunakan:
+
+`docs/design/admin-dashboard-reference.png`
+
+sebagai visual reference.
+
+Target visual:
+
+- layout sangat mirip reference
+- light theme
+- sidebar kiri
+- header atas
+- content area luas
+- provider cards 3 kolom
+- blue primary
+- white cards
+- green enabled badge
+- red disable button
+- clean typography
+- light borders
+- subtle shadows
+- modern spacing
+
+Tidak perlu menyalin pixel secara buta, tetapi hasil akhir harus jelas terlihat sebagai implementasi dari reference tersebut.
+
+==================================================
+29. VALIDATION
+==================================================
+
+Setelah implementasi:
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+Jika ada test Gorouter.app:
+
+JANGAN menjalankan atau memicu test/integration test Gorouter.app.
+
+Jika test suite otomatis memuat test Gorouter:
+- skip/exclude test tersebut
+- jangan mengubah test agar terlihat lulus
+- laporkan jumlah test yang dijalankan dan jumlah yang di-skip.
+
+Jangan menggunakan Gorouter.app sebagai fallback/provider untuk verification.
+
+Jangan melakukan live provider test NVIDIA/TokenHarbor hanya untuk kebutuhan redesign UI.
+
+==================================================
+30. FINAL UI CHECK
+==================================================
+
+Setelah selesai, periksa secara manual/automated jika memungkinkan:
+
+- sidebar
+- header
+- breadcrumb
+- search
+- refresh
+- system status
+- profile
+- provider cards
+- provider statistics
+- enable/disable
+- Add Provider
+- API Key Management
+- Model Registry
+- Usage Dashboard
+- Usage Logs
+- Pricing
+- Backup/Restore
+- Settings
+- responsive desktop
+- responsive tablet
+- responsive mobile
+
+Pastikan tidak ada:
+- dark theme
+- duplicate navigation
+- layout rusak
+- overflow
+- button overlap
+- text overlap
+- fake data
+- exposed API key
+- broken functionality
+
+==================================================
+31. FINAL REPORT
+==================================================
+
+Setelah selesai laporkan:
+
+1. File yang diubah.
+2. Component/layout yang dibuat atau diperbaiki.
+3. Design system yang digunakan.
+4. Apakah UI sudah mengikuti reference.
+5. Halaman yang sudah disesuaikan.
+6. Responsive status.
+7. Functionality yang diverifikasi.
+8. `npm run lint`
+9. `npm run build`
+10. `npm test`
+11. Jumlah test pass/fail/skip.
+12. Test Gorouter yang di-skip jika ada.
+13. Masalah yang masih tersisa.
+
+PENTING:
+Jangan hanya membuat Provider Management terlihat bagus.
+
+Seluruh Admin Dashboard harus menggunakan design system yang sama seperti reference.
+
+Jangan mengubah backend/business logic kecuali benar-benar diperlukan untuk mempertahankan kompatibilitas UI.
+
+Jangan membuat data palsu.
+
+Jangan membuat duplicate navigation.
+
+Jangan menggunakan dark theme.
+
+Gunakan `docs/design/admin-dashboard-reference.png` sebagai sumber referensi visual utama selama proses implementasi.
 
 
 ```
