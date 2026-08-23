@@ -49,10 +49,435 @@
 
 ```
 
-# 
+# Prompt: Provider API Key — Full Integration Audit
 ```
 
+Lakukan FULL AUDIT dan VERIFIKASI fitur Provider API Key pada project `nvidia-api` setelah implementasi ApiKeyStore, KeyManager, dan UI Provider API Key selesai.
 
+TUJUAN:
+Pastikan seluruh jalur API Key benar-benar terhubung dari UI → storage → provider → request → rotation → usage/logs, tanpa membocorkan secret dan tanpa merusak provider existing.
+
+JANGAN melakukan refactor besar.
+JANGAN membuat provider/key dummy.
+JANGAN mengubah behavior provider yang sudah bekerja kecuali diperlukan untuk memperbaiki integrasi API key.
+
+1. AUDIT STORAGE API KEY
+
+Audit:
+- `src/lib/api-key-store.ts`
+- `src/lib/key-manager.ts`
+- seluruh pemanggil ApiKeyStore/KeyManager.
+
+Pastikan setiap provider dapat memiliki multiple API key.
+
+Minimal data internal:
+- provider
+- key identifier/id
+- masked key
+- status active/disabled jika memang didukung
+- createdAt
+- updatedAt jika tersedia
+
+API key RAW hanya boleh berada di storage internal yang memang diperlukan.
+
+Jangan expose raw key melalui:
+- API response
+- dashboard
+- logs
+- error message
+- backup
+- browser/client JavaScript.
+
+2. TAMBAH API KEY MELALUI UI
+
+Audit flow:
+
+Admin UI
+→ pilih provider
+→ masukkan API key
+→ submit
+→ backend validation
+→ ApiKeyStore
+→ KeyManager
+
+Pastikan:
+- key tersimpan benar
+- provider benar
+- key tidak hilang setelah restart
+- duplicate key ditangani secara idempotent
+- UI tidak menampilkan raw key setelah disimpan
+- input API key menggunakan password/secret-style field jika sesuai UI existing.
+
+Setelah berhasil:
+UI cukup menampilkan:
+- masked key
+- status
+- jumlah key
+- created date jika tersedia.
+
+3. DELETE API KEY
+
+Pastikan admin dapat menghapus API key tertentu.
+
+Flow:
+UI
+→ DELETE endpoint
+→ validasi provider/key ID
+→ hapus dari ApiKeyStore
+→ KeyManager memperbarui pool.
+
+Pastikan:
+- key benar-benar tidak digunakan lagi setelah dihapus
+- key lain pada provider yang sama tidak ikut terhapus
+- tidak menghapus provider
+- tidak menghapus env fallback key jika desain existing memang memisahkannya
+- delete key terakhir ditangani dengan aman.
+
+Jika key sedang aktif digunakan oleh request:
+- jangan menyebabkan request yang sedang berjalan crash.
+- perubahan berlaku untuk request berikutnya.
+
+4. JUMLAH API KEY
+
+Pastikan UI menampilkan jumlah API key per provider.
+
+Contoh:
+
+NVIDIA
+API Keys: 3
+
+Jumlah harus berasal dari storage aktual, bukan hardcode.
+
+Pastikan count konsisten antara:
+- UI
+- endpoint admin
+- ApiKeyStore
+- KeyManager.
+
+5. MULTIPLE KEY ROTATION
+
+Audit KeyManager existing.
+
+Pastikan jika provider memiliki:
+
+KEY A
+KEY B
+KEY C
+
+request berjalan menggunakan pool key tersebut sesuai mekanisme round-robin yang sudah ada.
+
+Pastikan:
+- tidak selalu memakai key pertama
+- key yang tersedia dapat digunakan bergantian
+- key disabled/deleted tidak dipilih
+- pool otomatis berubah setelah add/delete.
+
+Jangan membuat rotation system kedua.
+
+Gunakan `KeyManager` existing.
+
+6. PROVIDER FALLBACK / ENV KEY
+
+Audit hubungan:
+- API key dari UI/store
+- API key dari environment/configuration.
+
+Pastikan behavior existing tidak rusak.
+
+Jika provider memiliki key dari UI:
+- gunakan key sesuai KeyManager.
+
+Jika tidak ada key UI:
+- gunakan env key hanya jika memang behavior existing mengizinkannya.
+
+Jangan menghapus env key.
+
+Jangan memasukkan env key ke UI sebagai raw value.
+
+Jangan membuat duplicate key hanya karena env key dan UI key memiliki nilai sama.
+
+7. REQUEST NYATA
+
+Gunakan provider/model yang memang sudah tersedia dan valid pada environment.
+
+Lakukan request nyata melalui:
+
+`POST /v1/chat/completions`
+
+Pastikan request:
+- memilih provider yang benar
+- memilih model yang benar
+- mengambil API key dari KeyManager
+- request berhasil jika credential valid.
+
+Jangan menggunakan provider dummy.
+Jangan menggunakan Gorouter.app sebagai fallback.
+
+8. API KEY FAILURE / ROTATION
+
+Jika memungkinkan secara aman, verifikasi behavior ketika salah satu key gagal.
+
+Contoh:
+
+KEY A → upstream authorization error
+KEY B → valid
+
+Pastikan KeyManager dapat berpindah ke key berikutnya jika mekanisme retry/rotation existing memang mendukungnya.
+
+Jangan membuat retry baru jika arsitektur existing tidak mendukung retry.
+
+Yang penting:
+- jangan retry tanpa batas
+- jangan menyebabkan request loop
+- jangan menyembunyikan error upstream sebenarnya.
+
+9. USAGE TRACKING
+
+Setelah request menggunakan API key provider, audit Usage Log.
+
+Pastikan Usage Log menyimpan:
+- provider
+- model
+- status
+- HTTP status
+- input tokens
+- output tokens
+- total tokens
+- latency
+- timestamp
+- client/API identifier yang sudah masked.
+
+JANGAN menyimpan raw provider API key.
+
+Jika sistem memang memiliki key ID:
+- boleh mencatat key ID/identifier yang aman
+- jangan mencatat raw key.
+
+10. ADMIN UI
+
+Audit halaman provider.
+
+Pastikan setiap provider memiliki:
+
+- Provider name
+- Provider status
+- API Keys count
+- daftar API key masked
+- Add API Key
+- Delete API Key
+- status key jika tersedia.
+
+UI harus tetap bersih dan konsisten dengan dashboard existing.
+
+Pastikan:
+- tombol Add bekerja
+- tombol Delete bekerja
+- confirmation sebelum delete jika UI existing menggunakan modal confirmation
+- loading state
+- success/error feedback
+- empty state ketika tidak ada key.
+
+11. API ENDPOINT SECURITY
+
+Audit endpoint API key management.
+
+Pastikan endpoint:
+- hanya dapat digunakan oleh admin
+- tidak dapat diakses public `/v1/*`
+- validasi provider
+- validasi key ID
+- tidak mengembalikan raw API key.
+
+Periksa:
+- GET/list keys
+- POST/add key
+- DELETE key
+- count keys
+
+Gunakan endpoint existing jika sudah tersedia.
+Jangan membuat endpoint duplikatif.
+
+12. RESTART PERSISTENCE
+
+Test:
+
+add key
+→ restart server
+→ cek UI
+→ cek count
+→ request
+
+Pastikan key tetap tersedia setelah restart.
+
+Jangan kehilangan data karena hanya tersimpan di memory.
+
+13. DELETE PERSISTENCE
+
+Test:
+
+add KEY A
+add KEY B
+delete KEY A
+restart server
+
+Pastikan:
+- KEY A tetap terhapus
+- KEY B tetap ada
+- count benar
+- KeyManager hanya menggunakan KEY B.
+
+14. SECURITY AUDIT
+
+Lakukan audit source code dan runtime untuk mencari kemungkinan secret leak.
+
+Cari raw API key pada:
+- console.log
+- logger
+- error
+- response JSON
+- admin endpoint
+- frontend state
+- browser response
+- backup
+- test output.
+
+Pastikan tidak ada raw key yang bocor.
+
+Gunakan masking seperti:
+`sk-****1111`
+
+atau mekanisme masking existing.
+
+Jangan menampilkan secret dalam laporan akhir.
+
+15. BACKUP COMPATIBILITY
+
+Pastikan API key provider TIDAK masuk backup plaintext.
+
+Backup boleh menyimpan:
+- provider state
+- key metadata/count jika memang diperlukan.
+
+Jangan menyimpan:
+- raw API key
+- Authorization header
+- provider secret.
+
+Restore tidak boleh membuat credential palsu.
+
+16. TESTING
+
+Tambahkan atau audit test untuk:
+
+- add API key
+- duplicate API key
+- list API keys
+- count API keys
+- delete API key
+- delete unknown key
+- multiple keys
+- round-robin KeyManager
+- deleted key tidak dipilih
+- restart persistence
+- provider association
+- admin authorization
+- raw key masking
+- raw key tidak masuk response
+- raw key tidak masuk logs
+- env key compatibility
+- Usage tetap tercatat
+- request menggunakan key dari KeyManager.
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+PENTING:
+Jangan menjalankan test/integration test Gorouter.app.
+
+Jika test suite otomatis memuat test Gorouter:
+- skip/exclude test tersebut
+- jangan mengubah test Gorouter agar lulus
+- laporkan jumlah test yang di-skip.
+
+NVIDIA dan TokenHarbor boleh dites sesuai kebutuhan existing project.
+
+17. REGRESSION
+
+Pastikan tidak merusak:
+
+- Provider Management
+- Enable/Disable Provider
+- Model Registry
+- `/v1/models`
+- `/v1/chat/completions`
+- streaming
+- Usage Tracking
+- Usage Dashboard
+- Logs
+- Backup
+- Restore
+- existing provider authentication
+- env API key fallback.
+
+18. HASIL AKHIR
+
+Berikan laporan lengkap:
+
+API KEY STORAGE
+- file yang digunakan
+- struktur data
+- persistence
+
+UI
+- Add API Key
+- Delete API Key
+- API Key count
+- masked display
+
+KEY MANAGER
+- rotation
+- multiple keys
+- deleted/disabled key handling
+
+REQUEST
+- provider yang digunakan
+- model yang digunakan
+- API key source: UI/store atau env
+- HTTP status
+- success/error
+
+USAGE
+- provider
+- model
+- input tokens
+- output tokens
+- total tokens
+- latency
+- API key identifier jika ada
+
+SECURITY
+- raw key leak audit
+- logs
+- API response
+- backup
+
+TEST
+- pass
+- fail
+- skipped
+- lint
+- build
+
+JANGAN:
+- membocorkan API key
+- mencetak credential
+- membuat provider/model dummy
+- menggunakan Gorouter sebagai fallback
+- mengubah test hanya agar lulus
+- melakukan refactor besar.
 
 ```
 
