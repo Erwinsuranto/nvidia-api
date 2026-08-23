@@ -1,9 +1,283 @@
 # nvidia-api
 
 
+
 # 
 ```
 
+
+
+```
+# 
+```
+
+
+
+```
+
+# 
+```
+
+
+
+```
+# Prompt: API Key Management — UI Real Verification & Fix
+```
+Lanjutkan project `nvidia-api`.
+
+JANGAN hanya audit. Jika menemukan masalah, LANGSUNG PERBAIKI lalu test ulang.
+
+FOKUS TAHAP INI:
+Verifikasi dan sempurnakan UI Admin untuk API Key Management yang sudah dibuat sebelumnya.
+
+Jangan membuat sistem API key baru.
+Gunakan ApiKeyStore + KeyManager existing.
+
+1. UI PROVIDER API KEY
+
+Pada dashboard/admin provider:
+
+Pastikan setiap provider menampilkan:
+- Provider name
+- Status Active/Disabled
+- API Keys count
+- daftar managed API key
+- masked key
+- label/name jika tersedia
+- createdAt jika tersedia
+- lastUsed jika tersedia
+
+Contoh:
+
+NVIDIA
+Active
+API Keys: 3
+
+••••••••1111
+••••••••2222
+••••••••3333
+
+2. ADD API KEY VIA UI
+
+Test flow nyata:
+
+Admin
+→ Add API Key
+→ pilih provider
+→ masukkan API key
+→ optional label
+→ Save
+
+Pastikan:
+- request benar-benar menuju endpoint admin existing
+- key tersimpan
+- UI otomatis refresh
+- count bertambah
+- key ditampilkan masked
+- raw key tidak pernah muncul setelah save.
+
+Jika API gagal:
+- tampilkan error yang jelas
+- jangan menghapus data existing
+- jangan membuat UI seolah-olah berhasil.
+
+3. DELETE VIA UI
+
+Test:
+
+Delete
+→ confirmation
+→ API request
+→ key terhapus
+→ UI refresh
+→ count berkurang.
+
+Pastikan delete hanya menghapus managed key yang dipilih.
+
+4. DUPLICATE VIA UI
+
+Masukkan API key yang sama.
+
+Harus:
+- ditolak
+- UI menampilkan error duplicate
+- count tidak berubah
+- tidak membuat record kedua.
+
+Jangan membocorkan raw key pada error.
+
+5. ENABLE/DISABLE PROVIDER
+
+Dari UI:
+
+Disable Provider
+→ status berubah Disabled
+→ request baru tidak menggunakan provider tersebut.
+
+Enable Provider
+→ status Active
+→ request dapat menggunakan provider kembali.
+
+API key tetap tersimpan ketika provider disabled.
+
+6. KEY COUNT
+
+Pastikan angka API Keys berasal dari data backend sebenarnya.
+
+Jangan:
+- hardcode
+- menghitung dari data UI lama
+- menggunakan env key sebagai managed key.
+
+Bedakan jika sistem memiliki:
+- managed API key count
+- environment API key count
+
+Jangan mencampurkan keduanya.
+
+7. REFRESH & RESTART
+
+Test:
+- refresh browser
+- logout/login jika tersedia
+- restart server
+- buka dashboard kembali.
+
+Pastikan:
+- key count tetap benar
+- key tetap tersimpan
+- provider state tetap benar
+- masked key tetap tampil.
+
+8. ROTATION
+
+Setelah minimal 3 key tersedia:
+
+request 1 → key rotation #1
+request 2 → key rotation #2
+request 3 → key rotation #3
+
+Pastikan UI/API key management tidak membuat KeyManager baru.
+
+Gunakan rotation existing.
+
+9. SECURITY UI
+
+Audit seluruh frontend:
+
+Raw API key TIDAK BOLEH:
+- masuk HTML
+- masuk response API setelah create
+- masuk browser console
+- masuk error message
+- masuk localStorage
+- masuk sessionStorage
+- masuk URL/query string.
+
+Pastikan hanya masked representation yang dikirim untuk display.
+
+10. RESPONSIVE UI
+
+Periksa tampilan mobile.
+
+Pastikan:
+- Add API Key mudah ditemukan
+- form tidak overflow
+- table/card responsive
+- tombol Delete tetap mudah digunakan
+- count terlihat jelas
+- confirmation dialog bekerja.
+
+Jangan mengubah desain dashboard secara besar.
+
+11. LOADING & ERROR STATE
+
+Pastikan setiap operasi memiliki state:
+
+Loading
+→ Success / Error
+
+Untuk Add/Delete/Refresh.
+
+Cegah double submit/double delete ketika request masih berjalan.
+
+12. TEST
+
+Tambahkan test UI/API integration yang relevan untuk:
+
+- load provider key count
+- render masked keys
+- add key
+- delete key
+- duplicate key
+- provider disabled
+- provider enabled
+- refresh persistence
+- count synchronization
+- raw key tidak muncul di response/UI
+- error handling
+- loading state.
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+JANGAN menjalankan atau memicu test Gorouter.app.
+
+Jika menemukan bug:
+LANGSUNG PERBAIKI.
+Jangan hanya melaporkan bug.
+
+Jangan mengubah test hanya supaya pass.
+
+13. REGRESSION
+
+Pastikan tetap tidak merusak:
+
+- Provider Management
+- Enable/Disable Provider
+- Model Registry
+- `/v1/models`
+- API request
+- streaming
+- Usage
+- Pricing
+- Cost calculation
+- Dashboard
+- Logs
+- Backup/Restore
+- ApiKeyStore
+- KeyManager rotation.
+
+14. FINAL REPORT
+
+Laporkan:
+
+- UI Add API Key
+- UI Delete API Key
+- API key count
+- masked key
+- duplicate protection
+- provider enable/disable
+- rotation
+- refresh persistence
+- security check
+- responsive UI
+- file yang diubah
+- test pass/fail/skip
+- lint
+- build
+- masalah yang masih tersisa.
+
+PENTING:
+Jangan membuat ApiKeyStore baru.
+Jangan membuat KeyManager baru.
+Jangan menyimpan raw key di frontend.
+Jangan menampilkan raw key.
+Jangan menggunakan Gorouter.app.
+Jika ada bug, langsung perbaiki.
 
 
 ```
