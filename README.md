@@ -56,10 +56,606 @@
 
 ```
 
-# 
+# Prompt 14 — Provider API Key Management
 ```
 
+Implementasikan fitur **API Key Management per Provider** pada project `nvidia-api`.
 
+TUJUAN:
+
+Admin harus dapat mengelola API key provider langsung dari UI Admin:
+
+Provider
+→ API Keys
+→ Add API Key
+→ Delete API Key
+→ Enable/Disable jika architecture mendukung
+→ Jumlah API Key
+→ Status/health jika sudah tersedia
+
+Jangan membuat sistem provider baru.
+Gunakan Provider Management dan struktur provider existing.
+
+1. AUDIT ARSITEKTUR TERLEBIH DAHULU
+
+Sebelum coding, audit:
+
+- provider registry
+- provider configuration
+- environment/config
+- authentication provider
+- request routing
+- provider.ts
+- admin API
+- admin dashboard
+- persistence/storage
+- backup/restore
+
+Cari bagaimana credential provider saat ini disimpan dan digunakan.
+
+JANGAN langsung membuat schema baru sebelum memahami storage existing.
+
+2. DATA MODEL API KEY
+
+Buat struktur API key yang aman.
+
+Minimal setiap API key memiliki:
+
+- id
+- providerId
+- maskedKey
+- createdAt
+- updatedAt
+- status jika diperlukan
+- metadata non-secret jika memang diperlukan
+
+RAW API KEY hanya boleh disimpan pada storage yang memang diperlukan untuk runtime authentication.
+
+Jangan pernah menyimpan atau menampilkan raw key pada response Admin API.
+
+Contoh UI:
+
+Provider: NVIDIA
+API Keys: 3
+
+- sk-••••••••1234    Active
+- sk-••••••••5678    Active
+- sk-••••••••9012    Disabled
+
+Jangan tampilkan full API key.
+
+3. ADD API KEY MELALUI UI
+
+Tambahkan tombol:
+
+`+ Add API Key`
+
+Flow:
+
+Provider
+→ Add API Key
+→ input API Key
+→ optional label jika architecture membutuhkan
+→ Save
+
+Setelah berhasil:
+
+- key tersimpan persistent
+- UI menampilkan masked key
+- jumlah API key bertambah
+- raw key tidak ditampilkan kembali
+- tidak masuk browser console
+- tidak masuk API response
+- tidak masuk logs.
+
+Validasi:
+
+- key tidak boleh kosong
+- trim whitespace
+- provider harus valid
+- duplicate key untuk provider yang sama harus ditangani dengan aman
+- jangan menyimpan malformed/empty credential.
+
+4. DELETE API KEY
+
+Tambahkan tombol:
+
+`Delete`
+
+Sebelum delete gunakan confirmation modal.
+
+Contoh:
+
+Delete API Key?
+
+Provider: NVIDIA
+Key: sk-••••••••1234
+
+[Cancel] [Delete]
+
+Setelah confirm:
+
+- hapus key dari persistent storage
+- key tidak dapat digunakan untuk request berikutnya
+- jumlah API key langsung diperbarui
+- UI refresh tanpa reload penuh jika memungkinkan.
+
+Jangan menghapus provider.
+
+Jangan menghapus model.
+
+Jangan menghapus Usage Logs.
+
+5. JUMLAH API KEY
+
+Pada setiap provider tampilkan:
+
+`API Keys: N`
+
+Contoh:
+
+NVIDIA
+Active
+Models: 38
+API Keys: 3
+
+Jumlah harus berasal dari backend/storage, bukan hardcoded.
+
+Pastikan count konsisten antara:
+
+storage
+→ admin API
+→ dashboard.
+
+Jika provider tidak memiliki key:
+
+`API Keys: 0`
+
+Jangan menampilkan raw credential.
+
+6. API KEY LIST ENDPOINT
+
+Jika architecture menggunakan Admin API, tambahkan endpoint yang konsisten dengan existing.
+
+Contoh konsep:
+
+GET `/admin/providers/:providerId/api-keys`
+
+Response hanya boleh berisi data aman:
+
+- id
+- providerId
+- maskedKey
+- status
+- createdAt
+- updatedAt
+
+JANGAN mengembalikan:
+
+- raw API key
+- Authorization header
+- secret
+- provider credential lainnya.
+
+7. ADD ENDPOINT
+
+Tambahkan endpoint Admin untuk membuat API key jika sesuai architecture.
+
+Input:
+
+- providerId
+- apiKey
+- label jika diperlukan
+
+Response:
+
+- success
+- id
+- maskedKey
+- status
+- timestamps
+
+Raw API key TIDAK BOLEH dikembalikan.
+
+8. DELETE ENDPOINT
+
+Tambahkan endpoint Admin untuk menghapus key.
+
+Validasi:
+
+- provider exists
+- key exists
+- key memang milik provider tersebut
+
+Jika tidak ditemukan:
+
+HTTP 404 dengan error yang jelas.
+
+Jangan menghapus key provider lain karena ID collision/manipulation.
+
+9. RUNTIME PROVIDER AUTHENTICATION
+
+Ini bagian paling penting.
+
+Audit bagaimana request saat ini mendapatkan credential provider.
+
+API key yang ditambahkan melalui UI harus benar-benar dapat digunakan oleh runtime provider jika provider tersebut memang mendukung multiple API keys.
+
+Jangan membuat storage key yang hanya tampil di UI tetapi tidak digunakan runtime.
+
+Pastikan:
+
+Add Key
+→ persistent storage
+→ provider runtime
+→ request dapat menggunakan key tersebut.
+
+Delete Key
+→ persistent storage
+→ runtime tidak lagi menggunakan key tersebut.
+
+10. MULTIPLE API KEYS
+
+Jika architecture provider mendukung multiple credential:
+
+Provider NVIDIA:
+
+Key A
+Key B
+Key C
+
+Request baru harus dapat memilih key berdasarkan mekanisme routing existing.
+
+Jangan membuat round-robin baru jika project sudah memiliki mekanisme credential rotation.
+
+Jika belum ada rotation:
+
+- jangan mengarang behavior
+- gunakan satu key sesuai architecture existing
+- dokumentasikan bahwa multiple-key storage sudah tersedia tetapi rotation belum diimplementasikan.
+
+JANGAN mengubah routing besar hanya untuk fitur ini.
+
+11. ENABLE/DISABLE API KEY
+
+Jika mudah diintegrasikan dengan architecture existing, tambahkan:
+
+Enable
+Disable
+
+per API key.
+
+Disabled key:
+
+- tidak boleh digunakan untuk request baru
+- tetap tersimpan
+- dapat di-enable kembali.
+
+Jika project belum memiliki konsep status credential, jangan melakukan refactor besar hanya untuk menambahkannya.
+
+12. API KEY COUNT DI PROVIDER UI
+
+Update Provider Management.
+
+Setiap provider harus menampilkan:
+
+- Provider
+- Status
+- Models
+- API Keys count
+
+Contoh:
+
+NVIDIA
+Active
+
+Models: 38
+API Keys: 3
+
+[Manage API Keys]
+[Disable]
+
+Klik:
+
+`Manage API Keys`
+
+membuka modal/page:
+
+NVIDIA API Keys
+
+3 API Keys
+
+[+ Add API Key]
+
+Key 1  sk-••••1234  Active  [Delete]
+Key 2  sk-••••5678  Active  [Delete]
+Key 3  sk-••••9012  Disabled [Enable] [Delete]
+
+13. SECURITY
+
+WAJIB audit seluruh jalur secret.
+
+Pastikan raw API key TIDAK muncul di:
+
+- dashboard HTML
+- API response
+- browser localStorage
+- browser sessionStorage
+- console.log
+- server logs
+- Usage Logs
+- error stack
+- backup
+- Git
+- GitHub/GitLab
+- debug output.
+
+Authorization header juga tidak boleh disimpan pada Usage Logs.
+
+Jika backup system sudah ada:
+
+API key provider HARUS tetap tidak masuk backup plaintext.
+
+14. ENV COMPATIBILITY
+
+Jangan langsung menghapus API key provider yang sekarang berasal dari `.env`.
+
+Audit compatibility.
+
+Existing:
+
+ENV API KEY
++
+UI-managed API KEY
+
+harus tetap dapat bekerja jika architecture memungkinkan.
+
+Jangan memindahkan credential production secara otomatis tanpa migration yang aman.
+
+Jika diperlukan migration:
+
+- jangan hapus `.env`
+- jangan overwrite credential
+- jelaskan migration yang diperlukan.
+
+15. PERSISTENCE
+
+API key yang ditambahkan melalui UI harus tetap ada setelah:
+
+- server restart
+- PM2 restart
+- deployment restart
+
+Gunakan storage existing.
+
+Jangan membuat database baru.
+
+Jangan membuat JSON storage baru jika project sudah memiliki persistent storage yang sesuai.
+
+16. USAGE INTEGRATION
+
+Usage Logs harus tetap aman.
+
+Jangan mencatat raw API key.
+
+Jika usage memang perlu mengidentifikasi credential:
+
+gunakan:
+
+- key ID
+- masked key
+- credential identifier
+
+bukan raw secret.
+
+Contoh:
+
+provider = nvidia
+apiKeyId = key_123
+apiKeyMasked = sk-••••1234
+
+17. DELETE SAFETY
+
+Sebelum delete:
+
+- pastikan key benar-benar milik provider
+- confirmation diperlukan
+- jangan delete provider
+- jangan delete model
+- jangan delete Usage Records.
+
+Jika key sedang digunakan oleh request aktif:
+
+jangan memutus request yang sedang berjalan jika architecture dapat menghindarinya.
+
+Delete berlaku untuk request baru.
+
+18. PROVIDER DENGAN 0 API KEY
+
+Provider tetap boleh tampil di Admin.
+
+Contoh:
+
+NVIDIA
+Active
+API Keys: 0
+
+Tetapi request harus mengikuti behavior existing ketika tidak ada credential:
+
+- error yang jelas
+- jangan crash server
+- jangan menggunakan credential provider lain secara diam-diam.
+
+19. TESTING
+
+Tambahkan test untuk:
+
+API KEY CRUD:
+
+- add key
+- add empty key
+- add invalid provider
+- duplicate key
+- list keys
+- delete key
+- delete nonexistent key
+- delete key dari provider lain
+
+COUNT:
+
+- zero keys
+- one key
+- multiple keys
+- count setelah add
+- count setelah delete
+
+SECURITY:
+
+- raw key tidak muncul response
+- raw key tidak muncul logs
+- raw key tidak muncul Usage Logs
+- raw key tidak masuk backup
+- masked key benar
+
+PERSISTENCE:
+
+- key tetap ada setelah restart/reload storage
+
+RUNTIME:
+
+- added key dapat digunakan oleh provider jika architecture mendukung
+- deleted key tidak digunakan request baru
+- disabled key tidak digunakan jika status key diterapkan
+
+PROVIDER REGRESSION:
+
+- provider enable/disable tetap bekerja
+- model registry tetap bekerja
+- `/v1/models` tetap bekerja
+- normal request tetap bekerja
+- streaming tetap bekerja
+- usage tracking tetap bekerja
+- usage cost tetap bekerja
+- dashboard tetap bekerja.
+
+20. UI TEST
+
+Pastikan UI:
+
+- Add API Key modal bekerja
+- input password/secret type digunakan untuk API key
+- key tidak terlihat setelah save
+- masked key ditampilkan
+- Delete confirmation bekerja
+- count API key langsung berubah
+- error backend ditampilkan dengan jelas
+- loading state tersedia
+- duplicate/error state ditangani.
+
+21. NO SECRET LEAK AUDIT
+
+Setelah implementasi lakukan pencarian source/log untuk memastikan tidak ada pola seperti:
+
+console.log(apiKey)
+console.log(config)
+console.log(headers)
+JSON.stringify(providerConfig)
+
+yang dapat membocorkan credential.
+
+Periksa juga:
+
+- error handler
+- request logging
+- admin API
+- backup
+- Usage Logs.
+
+22. TEST COMMAND
+
+Jalankan:
+
+npm run lint
+
+npm run build
+
+npm test
+
+Jangan mengubah test hanya agar menjadi hijau.
+
+Jangan menjalankan atau memicu test/integration test Gorouter.app.
+
+Jika ada test Gorouter yang otomatis ikut dijalankan:
+- skip/exclude sesuai mekanisme existing
+- laporkan jumlah test yang di-skip.
+
+23. REGRESSION
+
+Pastikan tidak merusak:
+
+- Provider Management
+- Enable/Disable Provider
+- Model Registry
+- `/v1/models`
+- API request
+- streaming
+- Usage Tracking
+- Usage Dashboard
+- Usage Cost
+- Logs
+- Backup/Restore
+- NVIDIA
+- TokenHarbor.ai
+
+Jangan melakukan refactor besar.
+
+24. HASIL AKHIR
+
+Setelah selesai laporkan:
+
+1. Storage API key yang digunakan.
+2. Schema/data model API key.
+3. Endpoint Add.
+4. Endpoint List.
+5. Endpoint Delete.
+6. Enable/Disable key jika dibuat.
+7. API key count.
+8. UI Add API Key.
+9. UI Delete API Key.
+10. Masking.
+11. Runtime authentication integration.
+12. Persistence setelah restart.
+13. Backup security.
+14. Usage security.
+15. File yang diubah.
+16. Test yang ditambahkan.
+17. npm run lint.
+18. npm run build.
+19. npm test.
+20. Jumlah pass/fail/skip.
+21. Masalah yang masih tersisa.
+
+ACCEPTANCE CRITERIA:
+
+Admin UI
+→ Add API Key
+→ Key tersimpan aman
+→ Key muncul sebagai masked
+→ API Key count bertambah
+→ Runtime provider dapat menggunakan key sesuai architecture
+→ Delete
+→ Key hilang dari runtime request baru
+→ API Key count berkurang
+
+DAN:
+
+Raw API key TIDAK BOLEH pernah muncul pada UI setelah save, API response, logs, Usage, backup, atau output debugging.
+
+Fokus pada **API Key Management per Provider**.
+Jangan mengubah arsitektur provider secara besar.
+Jangan membuat provider/model dummy.
+Jangan mengarang credential.
+Jangan membocorkan secret.
 
 ```
 
