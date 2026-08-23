@@ -35,9 +35,378 @@
 
 ```
 
-# 
+# Prompt 13 — Fix Remaining Usage Cost & Historical Data
 ```
+Lanjutkan dari hasil audit Usage terakhir pada project `nvidia-api`.
 
+HASIL TERAKHIR:
+- 518 tests passed
+- 0 failed
+- 20 skipped
+- Usage audit sudah mencakup extraction, totals, mapping, pricing, split cost, free/unknown/null, streaming, aggregation, dashboard consistency, cross-provider separation, precision, dan round-trip storage.
+
+JANGAN hanya membuat laporan.
+Jika ditemukan masalah yang aman diperbaiki, LANGSUNG PERBAIKI SOURCE CODE + TEST.
+
+==================================================
+1. FIX ERROR FALLBACK ATTRIBUTION
+==================================================
+
+Temuan:
+
+Saat semua provider gagal, error fallback attribution saat ini dapat didistribusikan ke provider percobaan terakhir.
+
+Audit root cause pada jalur fallback/error handling.
+
+Tujuan:
+
+Jika request mencoba beberapa provider dan semuanya gagal:
+- jangan mengubah attribution provider secara sembarangan
+- jangan membuat provider terakhir terlihat sebagai provider yang berhasil
+- jangan mengubah semantic request count existing tanpa alasan kuat
+- provider/model pada usage harus merepresentasikan request/attempt sebenarnya sesuai arsitektur existing.
+
+Pastikan:
+- success attribution tetap benar
+- upstream error attribution tetap benar
+- blocked attribution tetap benar
+- multi-provider fallback tetap dapat dibedakan
+- tidak terjadi double counting.
+
+Tambahkan regression test untuk:
+- provider pertama gagal
+- provider kedua gagal
+- seluruh provider gagal
+- provider fallback berhasil
+- provider fallback semuanya gagal.
+
+Jangan mengubah behavior yang sudah benar hanya demi membuat test baru lulus.
+
+==================================================
+2. HISTORICAL COST RECORD
+==================================================
+
+Temuan:
+
+Sebagian historical record memiliki:
+- `costUsd` numeric
+- tetapi belum memiliki split:
+  - inputCost
+  - outputCost
+
+Jangan merusak historical data.
+
+Audit schema dan storage usage.
+
+Tentukan apakah record lama memiliki informasi yang cukup untuk menghitung ulang:
+
+input tokens
+output tokens
+provider
+exact model
+pricing
+
+Jika SEMUA data tersedia:
+→ lakukan safe backfill.
+
+Jika data tidak cukup:
+→ jangan mengarang split cost.
+
+Untuk historical record yang hanya memiliki:
+`costUsd`
+
+dan tidak memiliki informasi token/pricing yang cukup:
+
+- pertahankan `costUsd` existing
+- jangan mengubah nilainya
+- jangan membuat inputCost/outputCost palsu
+- tampilkan split sebagai null/N/A jika diperlukan.
+
+Tujuan utama:
+Historical total cost tidak boleh berubah hanya karena migration.
+
+Jika membuat migration:
+- harus idempotent
+- aman dijalankan berkali-kali
+- tidak menggandakan cost
+- tidak mengubah timestamp
+- tidak mengubah provider
+- tidak mengubah model
+- tidak mengubah token asli.
+
+Tambahkan test:
+- old record with total cost only
+- old record with full token/pricing data
+- old record with insufficient data
+- repeated migration
+- migration preserves existing total cost.
+
+==================================================
+3. END-TO-END COST VALIDATION
+==================================================
+
+Buat validasi end-to-end menggunakan jalur request nyata/internal yang sudah tersedia.
+
+Validasi:
+
+request
+→ provider
+→ model
+→ usage
+→ pricing
+→ input cost
+→ output cost
+→ total cost
+→ storage
+→ aggregation
+→ admin API
+→ dashboard.
+
+Jangan menggunakan mock provider untuk menggantikan request nyata jika environment sudah menyediakan data nyata.
+
+Gunakan data request yang aman.
+
+Validasi secara matematis:
+
+inputCost =
+(inputTokens / pricingUnit) × inputPrice
+
+outputCost =
+(outputTokens / pricingUnit) × outputPrice
+
+totalCost =
+inputCost + outputCost
+
+Bandingkan:
+
+calculated total
+vs
+stored total
+vs
+aggregated dashboard total.
+
+Harus konsisten dalam tolerance precision yang wajar.
+
+Jangan menggunakan angka hasil formatting UI untuk perhitungan.
+
+==================================================
+4. PRICING STATUS
+==================================================
+
+Pastikan tiga kondisi tetap dibedakan:
+
+KNOWN
+→ pricing tersedia
+→ cost dapat dihitung
+
+FREE
+→ model memang dikonfigurasi free
+→ cost = 0
+
+UNKNOWN
+→ pricing tidak diketahui
+→ cost = null/N/A
+
+JANGAN:
+
+unknown → $0
+
+Jangan membuat fallback pricing dari model/provider lain.
+
+==================================================
+5. TOKEN SOURCE
+==================================================
+
+Pastikan seluruh cost tetap bergantung pada token usage asli.
+
+Prioritas:
+
+provider usage response
+→ normalized usage
+→ pricing
+→ cost.
+
+Jangan:
+- menghitung token dari panjang prompt
+- mengestimasi token
+- mengarang token ketika upstream tidak memberikan usage.
+
+Jika token null:
+→ cost null/N/A kecuali model benar-benar free dan behavior existing memang menetapkan cost $0.
+
+==================================================
+6. STREAMING REGRESSION
+
+Pastikan perubahan tidak merusak streaming.
+
+Test:
+
+stream success
+→ stream selesai
+→ usage jika tersedia
+→ pricing
+→ cost jika token + pricing tersedia
+→ satu usage record.
+
+Jika streaming usage null:
+→ token null
+→ cost null/N/A
+→ stream tetap sukses.
+
+Jangan membuat streaming gagal hanya karena usage tidak tersedia.
+
+==================================================
+7. DASHBOARD FINAL CONSISTENCY
+
+Pastikan dashboard tidak menghitung cost sendiri.
+
+Backend/storage menjadi source of truth.
+
+Dashboard harus menampilkan hasil aggregation backend.
+
+Validasi:
+
+sum(record.totalCost)
+=
+provider aggregation total
+=
+model aggregation total
+=
+dashboard total cost
+
+Untuk record yang cost null:
+- jangan dihitung sebagai $0 secara diam-diam jika status pricing UNKNOWN.
+- aggregation harus mengikuti semantic existing yang sudah ditetapkan.
+
+==================================================
+8. PROVIDER / MODEL SEPARATION
+
+Pastikan:
+
+provider A + model X
+dan
+provider B + model X
+
+tetap menggunakan pricing context masing-masing.
+
+Jangan lookup pricing berdasarkan model ID saja jika model ID dapat muncul pada provider berbeda.
+
+Pricing key harus mempertimbangkan provider + exact model.
+
+==================================================
+9. API KEY / CLIENT USAGE
+
+Pastikan usage attribution berdasarkan API key/client tetap aman.
+
+Gunakan identifier yang sudah dimasking.
+
+Jangan menyimpan:
+- raw API key
+- Authorization header
+- provider credential.
+
+Pastikan cost aggregation per client jika fitur tersebut sudah tersedia tidak mencampur client.
+
+==================================================
+10. TEST
+
+Tambahkan/perbaiki test untuk:
+
+- all providers fail attribution
+- fallback provider success
+- fallback providers all fail
+- historical total cost only
+- historical record full token data
+- historical record insufficient data
+- idempotent cost migration
+- known pricing
+- free pricing
+- unknown pricing
+- null token
+- streaming usage
+- streaming null usage
+- provider/model pricing separation
+- exact cost calculation
+- dashboard total cost
+- provider total cost
+- model total cost
+- round-trip storage.
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+PENTING:
+Jangan menjalankan atau memicu test/integration test Gorouter.app.
+
+Jika test suite otomatis memuat test Gorouter:
+- skip/exclude test tersebut.
+- jangan mengubah test Gorouter agar terlihat lulus.
+
+==================================================
+11. AUTO-FIX
+==================================================
+
+Jika test menemukan bug:
+
+1. Cari root cause.
+2. Perbaiki source code.
+3. Tambahkan regression test.
+4. Jalankan ulang test.
+5. Audit ulang jalur yang terkena perubahan.
+
+Jangan berhenti pada laporan.
+
+==================================================
+12. REGRESSION
+
+Pastikan tetap tidak merusak:
+
+- Provider Management
+- API Key Management
+- Provider Enable/Disable
+- Model Registry
+- `/v1/models`
+- `/v1/chat/completions`
+- `/v1/responses`
+- streaming
+- Usage Tracking
+- Usage Logs
+- Pricing
+- Usage Dashboard
+- Backup/Restore.
+
+Jangan melakukan refactor besar jika tidak diperlukan.
+
+==================================================
+13. FINAL REPORT
+
+Setelah selesai laporkan:
+
+- 3 masalah awal
+- root cause masing-masing
+- file yang diperbaiki
+- perubahan source code
+- migration/backfill yang dilakukan
+- historical records yang berhasil diperbaiki
+- records yang tetap N/A dan alasannya
+- hasil cost calculation
+- hasil dashboard consistency
+- hasil fallback attribution
+- test tambahan
+- npm run lint
+- npm run build
+- npm test
+- jumlah passed/failed/skipped
+- masalah yang masih tersisa.
+
+TARGET AKHIR:
+
+Tidak boleh ada bug yang diketahui dan aman diperbaiki tetapi hanya dilaporkan.
+
+Audit → Fix → Test → Verify.
 
 
 ```
