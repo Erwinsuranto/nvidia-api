@@ -28,10 +28,497 @@
 
 ```
 
-# 
+# Prompt 14 — Final Usage Cost Hardening & Fix
 ```
 
+Lanjutkan project `nvidia-api` dari hasil audit Usage terakhir.
 
+STATUS TERAKHIR:
+- 527 tests passed
+- 0 failed
+- 20 skipped
+- Usage audit sudah mencakup extraction, totals, mapping, pricing, split cost, free/unknown/null, streaming, aggregation, dashboard consistency, cross-provider separation, precision, round-trip storage.
+- Jangan mengulang pekerjaan yang sudah terbukti benar.
+
+PENTING:
+JANGAN hanya membuat laporan.
+Audit → temukan root cause → LANGSUNG PERBAIKI jika aman → tambahkan regression test → jalankan test ulang.
+
+==================================================
+1. ERROR FALLBACK ATTRIBUTION
+==================================================
+
+Temuan terakhir:
+
+Saat SEMUA provider gagal, error record saat ini tetap menggunakan behavior existing:
+- satu request menghasilkan satu request record
+- fallback dapat memiliki attempt/provider error information
+- perubahan attribution tidak boleh mengubah semantic request count.
+
+Audit source code yang menangani:
+- provider attempt
+- fallback
+- error recording
+- usage recording
+- routingLog
+- attribution.
+
+Tujuan:
+
+Pastikan satu request tidak berubah menjadi multiple request count hanya karena mencoba beberapa provider.
+
+Namun tetap pertahankan informasi attempt/error yang diperlukan.
+
+Jika ada bug nyata:
+- PERBAIKI LANGSUNG.
+
+Pastikan:
+
+1 logical API request
+→ 1 request-level usage count
+
+Sedangkan provider attempts/error dapat disimpan sebagai metadata/attempt information sesuai schema existing.
+
+Test wajib:
+
+- provider pertama gagal → provider kedua sukses
+- provider pertama gagal → provider kedua gagal
+- semua provider gagal
+- satu provider tanpa fallback
+- multiple attempts tidak menggandakan request count
+- successful fallback tetap tercatat success
+- all-provider failure tetap tercatat error
+- provider/model attribution tidak salah.
+
+JANGAN mengubah semantic request count hanya untuk membuat test baru lulus.
+
+==================================================
+2. HISTORICAL COST DATA
+==================================================
+
+Temuan:
+
+Historical record tertentu hanya memiliki:
+
+costUsd
+
+tetapi tidak memiliki data yang cukup untuk merekonstruksi:
+
+inputCost
+outputCost
+
+Jangan mengarang data.
+
+Audit migration/backfill yang sudah dibuat.
+
+Pastikan:
+
+Jika historical record memiliki:
+- exact model
+- provider
+- input tokens
+- output tokens
+- pricing yang valid
+
+→ boleh dihitung ulang secara deterministic.
+
+Jika historical record hanya memiliki:
+- costUsd
+
+atau data pricing/token tidak lengkap:
+
+→ PERTAHANKAN `costUsd` existing.
+→ Jangan membuat inputCost/outputCost palsu.
+→ split cost tetap `null`/N/A.
+→ jangan mengubah total cost.
+
+Pastikan migration:
+
+- idempotent
+- tidak menggandakan cost
+- tidak mengubah timestamp
+- tidak mengubah provider
+- tidak mengubah model
+- tidak mengubah token
+- tidak mengubah historical total cost.
+
+Tambahkan regression test:
+
+- historical cost-only record
+- historical full-token record
+- historical incomplete record
+- migration dijalankan dua kali
+- total cost tetap sama.
+
+Jika implementation saat ini sudah benar:
+JANGAN melakukan perubahan yang tidak perlu.
+
+==================================================
+3. COST CALCULATION SOURCE OF TRUTH
+==================================================
+
+Audit seluruh jalur:
+
+provider response
+→ normalized usage
+→ model/provider pricing
+→ inputCost
+→ outputCost
+→ totalCost
+→ usage storage
+→ aggregation
+→ admin API
+→ dashboard.
+
+Pastikan TIDAK ada jalur kedua yang menghitung cost dengan formula berbeda.
+
+Formula:
+
+inputCost =
+(inputTokens / pricingUnit) × inputPrice
+
+outputCost =
+(outputTokens / pricingUnit) × outputPrice
+
+totalCost =
+inputCost + outputCost
+
+Gunakan precision internal yang cukup.
+
+Jangan menghitung menggunakan angka yang sudah diformat UI.
+
+Jangan menggunakan:
+- `$0.00`
+- string currency
+- rounded display value
+
+sebagai source perhitungan.
+
+==================================================
+4. PRICING SEMANTIC
+==================================================
+
+Pastikan tiga kondisi tetap berbeda:
+
+KNOWN:
+pricing tersedia
+→ cost dihitung
+
+FREE:
+model memang free
+→ cost = 0
+
+UNKNOWN:
+pricing tidak diketahui
+→ cost = null/N/A
+
+JANGAN:
+
+UNKNOWN → $0
+
+Jangan fallback ke harga model lain.
+
+Pricing lookup harus mempertimbangkan:
+
+provider + exact model
+
+bukan hanya model ID jika model yang sama dapat berada di provider berbeda.
+
+==================================================
+5. TOKEN ACCOUNTING
+==================================================
+
+Audit seluruh endpoint:
+
+- `/v1/chat/completions`
+- `/v1/responses`
+- streaming
+- provider fallback.
+
+Usage harus berasal dari upstream/provider response.
+
+Jika tersedia:
+
+inputTokens
+outputTokens
+totalTokens
+
+Pastikan:
+
+totalTokens = inputTokens + outputTokens
+
+Jika upstream hanya memberikan sebagian:
+- jangan mengarang nilai
+- simpan null sesuai schema.
+
+Jika streaming mengirim:
+
+usage: null
+
+jangan membuat estimasi.
+
+==================================================
+6. DASHBOARD SOURCE OF TRUTH
+==================================================
+
+Dashboard TIDAK boleh menghitung cost/token sendiri dari raw records dengan formula berbeda.
+
+Backend usage aggregation adalah source of truth.
+
+Pastikan:
+
+Usage records
+=
+provider aggregation
+=
+model aggregation
+=
+dashboard totals
+
+Untuk cost:
+
+known cost → dijumlahkan
+
+unknown/null cost → jangan diam-diam dianggap $0 jika semantic project membedakannya sebagai UNKNOWN.
+
+Pastikan dashboard menampilkan status pricing/cost dengan jelas jika diperlukan:
+
+- Known
+- Free
+- N/A
+
+==================================================
+7. API KEY / PROVIDER SEPARATION
+==================================================
+
+Pastikan usage tetap dapat dipisahkan berdasarkan:
+
+- provider
+- exact model
+- client/API key identifier jika tersedia.
+
+Jangan menyimpan raw API key.
+
+Pastikan:
+
+provider A + model X
+
+tidak tercampur dengan:
+
+provider B + model X.
+
+==================================================
+8. STREAMING
+==================================================
+
+Regression test:
+
+stream request
+→ response tetap lancar
+→ stream selesai
+→ usage record dibuat
+→ usage provider digunakan jika tersedia
+→ cost dihitung jika token + pricing tersedia.
+
+Jika usage upstream null:
+
+token = null
+cost = null/N/A
+
+Jangan membuat stream gagal hanya karena usage null.
+
+==================================================
+9. ERROR / BLOCKED / SUCCESS
+==================================================
+
+Pastikan usage membedakan:
+
+SUCCESS
+ERROR
+BLOCKED
+
+SUCCESS:
+- request berhasil
+- HTTP status aktual
+- usage jika tersedia
+- cost jika dapat dihitung
+
+ERROR:
+- provider/upstream gagal
+- HTTP status aktual jika tersedia
+- jangan menganggap success
+- jangan menghitung cost tanpa usage valid
+
+BLOCKED:
+- request diblokir sebelum upstream
+- tidak boleh dihitung sebagai successful upstream request.
+
+==================================================
+10. REAL REQUEST VALIDATION
+==================================================
+
+Jangan memaksakan real paid-provider validation jika environment belum memiliki credential yang valid.
+
+Jika credential produksi tidak tersedia:
+- jangan membuat credential palsu
+- jangan mengubah source code untuk bypass authorization
+- jangan menganggap validasi tersebut gagal sebagai bug internal.
+
+Namun seluruh internal calculation/storage/aggregation harus tetap dapat divalidasi dengan test yang deterministic dan data provider yang memang sudah tersedia di project.
+
+==================================================
+11. AUTO-FIX RULE
+==================================================
+
+Jika menemukan bug:
+
+1. Identifikasi root cause.
+2. Perbaiki source code.
+3. Tambahkan regression test.
+4. Jalankan test terkait.
+5. Jalankan lint.
+6. Jalankan build.
+7. Audit ulang jalur yang berubah.
+
+JANGAN berhenti pada:
+"masalah ditemukan".
+
+Target:
+"masalah ditemukan → diperbaiki → diverifikasi".
+
+==================================================
+12. REGRESSION
+==================================================
+
+Jangan merusak:
+
+- Provider Management
+- API Key Management
+- Enable/Disable Provider
+- Model Registry
+- `/v1/models`
+- `/v1/chat/completions`
+- `/v1/responses`
+- streaming
+- Usage Tracking
+- Usage Logs
+- Pricing
+- Usage Dashboard
+- Backup/Restore.
+
+Jangan melakukan refactor besar.
+
+==================================================
+13. TEST
+==================================================
+
+Tambahkan/perbaiki test untuk:
+
+- fallback success
+- fallback all failed
+- request count tidak double count
+- provider attempt attribution
+- historical cost-only
+- historical full-cost reconstruction
+- idempotent migration
+- known pricing
+- free pricing
+- unknown pricing
+- provider/model pricing separation
+- exact token calculation
+- null token
+- streaming usage null
+- streaming usage tersedia
+- success/error/blocked
+- dashboard aggregation
+- cost aggregation
+- round-trip storage.
+
+Jalankan:
+
+npm run lint
+npm run build
+npm test
+
+JANGAN menjalankan atau memicu test/integration test Gorouter.app.
+
+Jika test Gorouter otomatis ditemukan:
+- skip/exclude
+- jangan mengubah test agar lulus
+- laporkan jumlah skip.
+
+==================================================
+14. FINAL VERIFICATION
+==================================================
+
+Setelah semua selesai, lakukan final audit terhadap jalur:
+
+REQUEST
+↓
+PROVIDER
+↓
+MODEL
+↓
+UPSTREAM USAGE
+↓
+NORMALIZED USAGE
+↓
+PRICING
+↓
+INPUT COST
+↓
+OUTPUT COST
+↓
+TOTAL COST
+↓
+USAGE STORE
+↓
+AGGREGATION
+↓
+ADMIN API
+↓
+DASHBOARD
+
+Pastikan tidak ada jalur yang:
+- kehilangan token
+- menggandakan request
+- menggandakan cost
+- mencampur provider
+- mencampur model
+- mengubah UNKNOWN menjadi $0
+- menghitung cost dari angka UI
+- mengarang token.
+
+==================================================
+15. HASIL AKHIR
+==================================================
+
+Laporkan:
+
+- bug yang ditemukan
+- root cause
+- source file yang diperbaiki
+- perubahan yang dilakukan
+- test baru
+- hasil fallback
+- hasil historical cost handling
+- hasil pricing validation
+- hasil token validation
+- hasil dashboard consistency
+- lint
+- build
+- test
+- jumlah passed/failed/skipped
+- masalah yang benar-benar masih membutuhkan credential/data eksternal.
+
+PENTING:
+
+Jangan hanya audit.
+Jika ada kesalahan di source code dan aman diperbaiki, LANGSUNG PERBAIKI.
+
+Jangan mengubah behavior yang memang sudah benar hanya untuk menghilangkan "masalah tersisa".
+
+Audit → Fix → Test → Verify.
 
 ```
 
