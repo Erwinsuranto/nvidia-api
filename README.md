@@ -197,15 +197,13 @@ for key in rotate(keys):
     return error
 
 return provider_error
-```
 
 Yang TIDAK boleh:
 
-```text
+text
 for provider in providers:
     try:
         request(provider)
-```
 
 ### Testing
 
