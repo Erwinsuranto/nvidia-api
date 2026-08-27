@@ -58,6 +58,187 @@
 ```
 # 
 ```
+Perbaiki sistem routing/fallback pada project `nvidia-api`.
+
+### Tujuan utama
+
+Terapkan aturan **provider-locked routing** untuk SEMUA provider dan SEMUA model.
+
+Jika sebuah model sudah terhubung ke provider tertentu, request model tersebut **WAJIB tetap berada di provider tersebut**.
+
+Yang boleh berpindah hanya **API key/account di dalam provider yang sama**.
+
+### Aturan routing
+
+Contoh:
+
+`GLM → Empero`
+
+Jika Empero memiliki beberapa key:
+
+* Empero Key 1
+* Empero Key 2
+* Empero Key 3
+
+Maka ketika request `GLM` masuk:
+
+1. Gunakan Empero Key 1.
+2. Jika key gagal karena rate limit, quota habis, authentication error, temporary provider error, atau error yang memang layak dicoba dengan key lain, pindah ke Empero Key 2.
+3. Jika Key 2 gagal, lanjut ke Key 3.
+4. Jika salah satu key berhasil, kembalikan response.
+5. Jika SEMUA key milik Empero gagal, request harus gagal.
+6. **JANGAN pernah berpindah ke provider lain sebagai fallback.**
+
+### Larangan penting
+
+Jangan membuat fallback seperti:
+
+`GLM → Empero ❌ → Provider B ❌ → Provider C`
+
+Yang benar:
+
+`GLM → Empero → Key 1 → Key 2 → Key 3 → gagal`
+
+Provider lain tidak boleh digunakan.
+
+### Berlaku untuk semua provider
+
+Jangan hardcode hanya untuk Empero atau GLM.
+
+Implementasikan aturan ini pada arsitektur routing secara umum sehingga berlaku untuk:
+
+* NVIDIA
+* Empero
+* TokenHarbor
+* dan semua provider lain yang sudah ada maupun yang akan ditambahkan.
+
+Gunakan konsep:
+
+`model → provider → keys`
+
+Bukan:
+
+`model → list semua provider → fallback provider`
+
+### Multi-key
+
+Pertahankan/implementasikan mekanisme multi-key per provider.
+
+Setiap provider dapat mempunyai beberapa credential/key.
+
+Routing key boleh menggunakan mekanisme yang sudah ada seperti round-robin atau mekanisme key rotation yang sesuai.
+
+Yang penting:
+
+**key rotation hanya terjadi di dalam provider yang sama.**
+
+### Error handling
+
+Bedakan antara:
+
+* error pada satu key → boleh mencoba key lain dari provider yang sama
+* semua key provider gagal → return error
+* model tidak tersedia pada provider tersebut → return error
+* provider tidak tersedia → return error
+
+Jangan menangkap error lalu diam-diam mengirim request ke provider lain.
+
+### Provider mapping
+
+Jangan merusak mapping model/provider yang sudah ada.
+
+Jika saat ini:
+
+`GLM → Empero`
+
+maka tetap:
+
+`GLM → Empero`
+
+Jangan mengubahnya menjadi provider fallback chain.
+
+Jika ada model yang memang dikonfigurasi memiliki beberapa provider secara eksplisit, pertahankan konfigurasi tersebut hanya jika arsitektur project memang sudah mendukung konsep tersebut. Jangan menganggap semua provider yang mendukung nama model sebagai fallback otomatis.
+
+### Arsitektur
+
+Cari seluruh bagian code yang menangani:
+
+* model selection
+* provider selection
+* fallback
+* retry
+* API key rotation
+* provider registry
+* request dispatch
+* error handling
+
+Pastikan tidak ada jalur tersembunyi yang melakukan fallback antar-provider.
+
+Buat logic provider-locking di level routing/core agar aturan ini berlaku konsisten untuk seluruh provider.
+
+Contoh pseudocode:
+
+```text
+model = requested_model
+
+provider = resolveProvider(model)
+
+keys = provider.getKeys()
+
+for key in rotate(keys):
+    response = request(provider, key, model)
+
+    if success:
+        return response
+
+    if retryable_key_error:
+        continue
+
+    return error
+
+return provider_error
+```
+
+Yang TIDAK boleh:
+
+```text
+for provider in providers:
+    try:
+        request(provider)
+```
+
+### Testing
+
+Setelah perubahan selesai, buat/jalankan test yang membuktikan:
+
+1. Model hanya menggunakan provider yang sudah ditentukan.
+2. Key 1 gagal → Key 2 digunakan.
+3. Key 2 gagal → Key 3 digunakan.
+4. Key 3 berhasil → response berhasil.
+5. Semua key gagal → request gagal.
+6. Semua key gagal → TIDAK ada provider lain yang dicoba.
+7. Provider lain yang kebetulan mendukung model tersebut tidak digunakan sebagai fallback otomatis.
+8. Aturan yang sama berlaku untuk provider lain, bukan hanya Empero.
+9. Existing functionality tidak rusak.
+
+Gunakan mock/test provider bila diperlukan agar test tidak membutuhkan credential production.
+
+### Penting
+
+Jangan menambahkan fitur **combo** sekarang.
+
+Fokus perubahan kali ini hanya:
+
+**Provider tetap → multi-key rotation di dalam provider tersebut → gagal jika semua key provider tersebut gagal.**
+
+Setelah implementasi selesai, tampilkan:
+
+* file yang diubah
+* perubahan utama
+* hasil test
+* contoh flow routing sebelum dan sesudah perubahan
+
+Jangan berhenti hanya setelah coding. Pastikan implementasi benar-benar diverifikasi dengan test.
 
 
 
