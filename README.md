@@ -53,7 +53,56 @@
 # 
 ```
 
+Lakukan audit dan perbaikan pada project nvidia-api dengan fokus pada cooldown/restart provider dan auto-discovery provider/model ke UI.
 
+1. Ubah cooldown/restart provider menjadi sekitar 3 menit (180 detik). Jangan melakukan restart, retry, reset, atau recovery berulang setiap beberapa detik. Jika provider atau key mengalami error yang memang perlu cooldown, tandai cooldown sekitar 180 detik sebelum dicoba kembali.
+
+2. Cooldown harus berlaku secara independen pada provider/key yang bermasalah. Jangan sampai provider/key yang cooldown menyebabkan request berpindah ke provider lain. Pertahankan aturan provider-locked routing:
+model → provider tetap → multi-key dalam provider yang sama.
+
+Contoh:
+GLM → Empero → Key 1 → Key 2 → Key 3
+
+Jika semua key Empero gagal atau cooldown, request harus gagal. Jangan fallback ke provider lain.
+
+3. Audit seluruh arsitektur provider di backend dan frontend, termasuk provider registry, provider loader, configuration, model registry, initialization, routing, retry, fallback, API-key rotation, API endpoint, cache, refresh/sync, dan UI provider/model list.
+
+4. Pastikan penambahan provider baru di code/registry otomatis terbaca oleh backend dan UI. Jangan ada daftar provider hardcoded terpisah di frontend yang harus diedit setiap kali provider baru ditambahkan.
+
+Gunakan single source of truth untuk provider registry. Jika provider baru ditambahkan ke registry dan service melakukan load/refresh/restart sesuai arsitektur project, provider tersebut harus otomatis tersedia di backend dan otomatis muncul di UI.
+
+5. Terapkan hal yang sama untuk model. Jika provider baru memiliki model yang terdaftar di backend/registry, model tersebut harus otomatis dapat terbaca dan ditampilkan UI tanpa harus menambahkan nama model secara manual di frontend.
+
+6. Cari semua hardcoded provider list dan model list yang dapat menyebabkan provider sudah tersedia di backend tetapi tidak muncul di UI. Perbaiki agar frontend mengambil data provider/model dari sumber yang benar.
+
+7. Jangan membuat hot-reload palsu. Jika restart service memang diperlukan agar provider baru terbaca, pastikan setelah restart provider otomatis ter-load dan UI mengambil data terbaru tanpa perubahan manual pada frontend. Jika dynamic reload aman dan memang didukung, gunakan mekanisme tersebut.
+
+8. Pertahankan seluruh aturan provider-locked multi-key yang sudah diterapkan sebelumnya. Jangan mengubah routing menjadi fallback antar-provider.
+
+9. Testing wajib dilakukan setelah coding:
+- test cooldown sekitar 180 detik;
+- pastikan tidak ada retry/restart setiap beberapa detik;
+- key yang cooldown tidak digunakan sampai cooldown selesai;
+- cooldown satu provider/key tidak memengaruhi provider lain;
+- provider baru yang ditambahkan ke registry otomatis terdeteksi backend;
+- provider baru otomatis muncul di UI;
+- model baru otomatis muncul di UI;
+- tidak ada fallback antar-provider;
+- multi-key tetap berpindah hanya di dalam provider yang sama;
+- existing functionality tetap bekerja.
+
+10. Untuk pengujian auto-discovery, gunakan provider/model dummy atau mock jika diperlukan. Jangan menggunakan credential production.
+
+11. Jangan menambahkan fitur COMBO sekarang. Fokus hanya pada cooldown/restart sekitar 3 menit, audit provider architecture, auto-discovery provider/model, sinkronisasi UI, dan provider-locked multi-key routing.
+
+Setelah selesai, tampilkan:
+- file yang diubah;
+- masalah yang ditemukan saat audit;
+- perubahan yang dilakukan;
+- hasil test;
+- bukti provider/model baru otomatis terbaca oleh UI.
+
+Jangan hanya mengubah angka cooldown. Audit seluruh alur provider dan perbaiki jika ditemukan masalah terkait routing, registry, discovery, retry, fallback, atau sinkronisasi UI.
 
 ```
 # 
