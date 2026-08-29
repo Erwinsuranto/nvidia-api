@@ -47,7 +47,61 @@
 # 
 ```
 
+Kita akan membuat repository terpisah bernama `ssh-setup`, khusus untuk mengaktifkan SSH password login pada VPS baru dengan cara sesederhana mungkin, idealnya satu kali menjalankan script.
 
+Ini adalah PROMPT 1 — AUDIT & DESAIN SAJA.
+
+Tugas:
+1. Audit environment VPS saat ini:
+   - OS dan versinya
+   - systemd/init system
+   - lokasi konfigurasi sshd
+   - versi OpenSSH server
+   - nama service SSH (`ssh`/`sshd`)
+   - apakah root login saat ini diizinkan
+   - apakah password authentication saat ini diizinkan
+   - apakah ada konfigurasi di `/etc/ssh/sshd_config.d/`
+   - apakah cloud-init atau konfigurasi provider berpotensi menimpa setting SSH
+
+2. Cari semua konfigurasi SSH yang efektif dan konflik, terutama:
+   - `PermitRootLogin`
+   - `PasswordAuthentication`
+   - `KbdInteractiveAuthentication`
+   - `PubkeyAuthentication`
+   - `AuthenticationMethods`
+
+3. Jangan mengubah konfigurasi sistem.
+   Jangan restart/reload SSH.
+   Jangan mengubah password.
+   Jangan membuat file repository.
+   Jangan install package apa pun.
+
+4. Berdasarkan hasil audit, desain script `enable-password.sh` yang nantinya:
+   - aman dijalankan pada VPS baru
+   - idempotent
+   - membuat konfigurasi SSH khusus tanpa merusak konfigurasi bawaan
+   - memvalidasi `sshd` sebelum restart
+   - mendukung Ubuntu/Debian sebisa mungkin
+   - menghindari lockout SSH
+   - dapat dijalankan ulang tanpa menghasilkan konfigurasi duplikat
+   - memberikan output/status yang jelas
+   - memungkinkan root login menggunakan password
+
+5. Periksa juga apakah ada perbedaan antara konfigurasi yang tertulis di file dan konfigurasi efektif hasil `sshd -T`.
+
+6. Berikan laporan:
+   - kondisi VPS saat ini
+   - konfigurasi SSH efektif
+   - potensi masalah/konflik
+   - desain struktur repository
+   - desain alur `enable-password.sh`
+   - rekomendasi keamanan
+
+PENTING:
+- Ini hanya audit.
+- Jangan melakukan perubahan apa pun pada sistem.
+- Jangan commit atau push.
+- Berhenti setelah laporan audit selesai.
 
 ```
 # 
