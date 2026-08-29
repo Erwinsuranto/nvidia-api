@@ -40,7 +40,221 @@
 ```
 # 
 ```
+Lanjutkan project dari hasil audit sebelumnya.
 
+Sekarang IMPLEMENTASIKAN script utama:
+/root/ssh-setup
+
+Tujuan:
+Membuat satu script yang dapat dijalankan dengan satu perintah untuk mengaktifkan SSH login root menggunakan PASSWORD, termasuk jika konfigurasi cloud-init/sshd_config.d menimpa konfigurasi utama.
+
+ATURAN PENTING:
+- Jangan membuat project baru.
+- Jangan menghapus konfigurasi SSH bawaan.
+- Jangan mengubah file /etc/ssh/sshd_config secara langsung jika bisa dihindari.
+- Gunakan drop-in configuration baru agar mudah di-rollback.
+- Jangan menghapus file konfigurasi 50-cloud-init.conf atau file sshd_config.d lainnya.
+- Selalu buat backup sebelum perubahan.
+- Script harus idempotent: aman dijalankan berkali-kali.
+- Jangan melakukan reboot server.
+- Jangan mengubah firewall.
+- Jangan mengubah port SSH.
+- Jangan mengubah user selain root.
+- Jangan memasang paket yang tidak diperlukan.
+- Jangan menggunakan hardcoded password.
+- Password root harus diminta secara interaktif melalui `passwd root`.
+- Jangan pernah mencetak password ke terminal/log.
+
+DESAIN SCRIPT:
+
+1. Pastikan script dijalankan sebagai root.
+   Jika bukan root:
+   - tampilkan pesan error yang jelas
+   - exit 1
+
+2. Tentukan backup directory:
+   /root/ssh-setup-backup
+
+3. Buat backup timestamp sebelum perubahan, misalnya:
+   /root/ssh-setup-backup/YYYYMMDD-HHMMSS/
+
+   Backup minimal:
+   - /etc/ssh/sshd_config
+   - seluruh /etc/ssh/sshd_config.d/ jika tersedia
+
+   Jangan gagal hanya karena salah satu file optional tidak ada.
+
+4. Buat drop-in khusus untuk konfigurasi password root:
+   /etc/ssh/sshd_config.d/99-root-password.conf
+
+   Isi harus:
+
+   PermitRootLogin yes
+   PasswordAuthentication yes
+   KbdInteractiveAuthentication no
+
+   Pastikan tidak ada konfigurasi aneh atau duplikat di dalam file tersebut.
+
+5. Jangan menghapus konfigurasi lain.
+
+6. Pastikan root mempunyai password.
+   Gunakan:
+   passwd root
+
+   Jangan pernah menerima password sebagai command-line argument.
+   Jangan menyimpan password ke file.
+   Jangan menampilkan password.
+
+7. Setelah perubahan, VALIDASI konfigurasi sebelum reload/restart SSH:
+
+   sshd -t
+
+   Jika `sshd -t` gagal:
+   - jangan reload SSH
+   - tampilkan error
+   - beritahu lokasi backup
+   - exit 1
+
+8. Jika validasi berhasil, tentukan apakah SSH menggunakan systemd socket activation atau service biasa.
+
+   Periksa:
+   systemctl is-active ssh.socket
+   systemctl is-enabled ssh.socket
+
+   dan:
+   systemctl is-active ssh
+   systemctl is-enabled ssh
+
+   Jika ssh.socket aktif:
+   - gunakan mekanisme reload/restart yang tepat
+   - jangan sembarangan mematikan socket
+   - pastikan port 22 tetap listen
+
+   Jika service biasa:
+   - reload SSH jika memungkinkan
+   - gunakan restart hanya jika memang diperlukan
+
+9. Setelah reload/restart, lakukan post-check:
+
+   sshd -T
+
+   Ambil nilai efektif:
+   - permitrootlogin
+   - passwordauthentication
+   - kbdinteractiveauthentication
+   - port
+
+   Output harus mudah dibaca.
+
+10. Lakukan pengecekan port SSH:
+
+   ss -lntp | grep ':22'
+
+   Jangan menganggap SSH berhasil hanya karena systemctl menunjukkan active.
+   Pastikan port 22 benar-benar LISTEN.
+
+11. Tampilkan hasil akhir dalam format yang jelas:
+
+   ========================================
+   SSH PASSWORD LOGIN SETUP
+   ========================================
+
+   [OK] Backup dibuat
+   [OK] Drop-in configuration dibuat
+   [OK] sshd configuration valid
+   [OK] SSH service/socket aktif
+   [OK] Port 22 LISTENING
+
+   Effective SSH configuration:
+   PermitRootLogin: ...
+   PasswordAuthentication: ...
+   KbdInteractiveAuthentication: ...
+   Port: ...
+
+   Backup:
+   /root/ssh-setup-backup/...
+
+   ========================================
+
+12. Tambahkan pemeriksaan keamanan:
+   - Jika PermitRootLogin efektif bukan `yes`, beri status WARNING/ERROR.
+   - Jika PasswordAuthentication efektif bukan `yes`, beri status WARNING/ERROR.
+   - Jika port 22 tidak LISTEN, beri status ERROR.
+   - Jika semua berhasil, tampilkan `SSH PASSWORD LOGIN READY`.
+
+13. Tambahkan mode bantuan:
+
+   /root/ssh-setup --help
+
+   menjelaskan:
+   - fungsi script
+   - lokasi backup
+   - cara menjalankan
+   - cara rollback
+
+14. Tambahkan mode status:
+
+   /root/ssh-setup --status
+
+   Mode ini TIDAK mengubah konfigurasi.
+   Hanya menampilkan konfigurasi SSH efektif dan status service/socket serta port 22.
+
+15. Tambahkan mode rollback:
+
+   /root/ssh-setup --rollback
+
+   Jangan langsung menghapus sesuatu tanpa konfirmasi.
+
+   Tampilkan backup yang tersedia, minta konfirmasi:
+   "Rollback SSH configuration? [y/N]"
+
+   Jika user memilih y:
+   - pulihkan backup yang dipilih
+   - jalankan `sshd -t`
+   - jika valid, reload/restart SSH dengan aman
+   - lakukan post-check
+
+   Jangan rollback jika validasi gagal.
+
+16. Buat script executable:
+   chmod 700 /root/ssh-setup
+
+17. Tambahkan shell safety:
+   - gunakan bash
+   - `set -Eeuo pipefail`
+   - gunakan trap untuk menangani error
+   - jangan membocorkan password
+   - gunakan command -v untuk mengecek command penting
+   - tangani sistem Ubuntu/Debian dengan baik
+
+18. Sebelum selesai, lakukan TEST LOKAL tanpa memutus koneksi SSH saat ini.
+
+   Test:
+   - syntax shell
+   - sshd -t
+   - sshd -T
+   - status systemd
+   - port 22
+   - permission script
+
+   JANGAN menjalankan test koneksi SSH ke server dari dalam script karena bisa membuat masalah/loop.
+
+19. Sangat penting:
+   Jangan membuat script yang otomatis logout, reboot, atau memutus terminal aktif.
+
+20. Setelah implementasi selesai, tampilkan:
+   - isi lengkap `/root/ssh-setup`
+   - permission file
+   - hasil `--status`
+   - hasil validasi sshd
+   - hasil pengecekan port
+   - ringkasan file yang dibuat/diubah
+
+Jangan melakukan git commit/push.
+Jangan install OpenCode/GitHub CLI.
+Jangan mengubah project lain.
+
+Kerjakan langsung implementasinya sekarang.
 
 
 ```
