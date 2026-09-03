@@ -35,7 +35,234 @@
 # 
 ```
 
+Lakukan AUDIT DAN PERBAIKAN menyeluruh pada project nvidia-api untuk memastikan client/user tidak dapat mengetahui atau menebak sumber backend provider melalui informasi yang dibocorkan oleh API gateway.
 
+Fokus pada seluruh jalur API client, terutama /v1/*, bukan hanya satu endpoint.
+
+Tujuan:
+Client hanya mengetahui Base URL nvidia-api, Client API Key, model yang digunakan, dan response API yang sudah dinormalisasi. Informasi provider internal harus tetap berada di backend.
+
+Audit dan perbaiki hal-hal berikut:
+
+1. PROVIDER INFORMATION LEAK
+Cari seluruh tempat yang mungkin membocorkan:
+- nama provider
+- providerId
+- provider name
+- upstream URL
+- upstream hostname/domain
+- upstream API endpoint
+- credential/API key provider
+- provider metadata
+- internal routing information
+- nama adapter/provider implementation
+- informasi debug internal
+
+Pastikan informasi tersebut tidak pernah dikirim ke client.
+
+2. HTTP RESPONSE HEADERS
+Audit semua response dari endpoint client.
+
+Jangan meneruskan header upstream yang dapat mengungkap provider atau infrastruktur internal, termasuk header custom dari upstream.
+
+Gunakan response header yang dikontrol oleh nvidia-api sendiri.
+
+Pastikan header internal seperti provider/upstream/debug/tracing internal tidak ikut keluar ke client.
+
+3. RESPONSE BODY
+Audit response JSON dari seluruh endpoint client.
+
+Jangan mengembalikan:
+provider
+providerId
+providerName
+upstream
+upstreamUrl
+backend
+adapter
+credential
+internal metadata
+atau informasi routing internal lainnya.
+
+Jika provider upstream mengembalikan metadata tambahan, normalisasi/filter sebelum response dikirim ke client.
+
+4. ERROR RESPONSE
+Ini sangat penting.
+
+Jangan meneruskan error mentah dari provider upstream karena error tersebut dapat berisi:
+- nama provider
+- hostname
+- URL
+- path internal
+- nama service
+- credential information
+- struktur backend
+- stack trace
+- pesan internal
+
+Buat error response yang aman dan tetap kompatibel dengan API client.
+
+Contoh konsep:
+
+Upstream:
+"Empero API request failed at https://...."
+
+Client:
+error response generik yang sesuai dengan OpenAI-compatible API tanpa menyebut Empero atau URL upstream.
+
+Tetap pertahankan HTTP status code dan informasi error yang memang aman untuk client.
+
+5. STREAMING / SSE
+Audit streaming response secara khusus.
+
+Pastikan provider tidak dapat bocor melalui:
+- SSE event
+- headers
+- metadata
+- error event
+- stream termination message
+- debug information
+
+Streaming harus tetap kompatibel dengan client tetapi tidak membocorkan sumber upstream.
+
+6. /v1/models
+Audit endpoint /v1/models.
+
+Client hanya boleh melihat model yang memang diizinkan oleh Client API Key.
+
+Jangan expose providerId/providerName/provider metadata.
+
+Model harus tetap bisa digunakan normal tanpa client mengetahui provider internal.
+
+7. CLIENT API KEY
+Pastikan Client API Key tidak pernah memberikan akses untuk mengetahui provider mapping.
+
+Jika client memiliki:
+API Key → Provider → Allowed Models
+
+maka relasi Provider tersebut harus menjadi informasi internal backend.
+
+Client hanya mendapatkan:
+API Key → Allowed Models
+
+bukan:
+API Key → Provider → Allowed Models.
+
+8. PROVIDER ROUTING
+Pertahankan aturan yang sudah diterapkan:
+
+model → provider tetap → multi-key provider yang sama
+
+Contoh:
+GLM → Empero → Key 1 → Key 2 → Key 3
+
+Jika semua key Empero gagal:
+request gagal.
+
+JANGAN fallback ke provider lain hanya untuk menyembunyikan error atau karena provider sedang cooldown.
+
+9. LOGGING DAN DEBUG
+Audit endpoint client dan production error handling agar stack trace, debug object, provider object, upstream request/response, dan credential tidak pernah dikirim ke client.
+
+Internal logging boleh menyimpan informasi provider sesuai kebutuhan operasional, tetapi jangan expose internal log melalui API client.
+
+10. CORS / BROWSER EXPOSURE
+Audit response header dan mekanisme browser exposure.
+
+Pastikan informasi internal tidak bisa diperoleh melalui exposed response headers atau endpoint publik lainnya.
+
+11. SEARCH SELURUH CODEBASE
+Cari secara menyeluruh semua penggunaan:
+providerId
+provider
+providerName
+upstream
+upstreamUrl
+baseUrl
+endpoint
+adapter
+error
+headers
+response
+metadata
+debug
+stack
+trace
+
+Periksa apakah ada jalur yang dapat menyebabkan data internal tersebut keluar ke client.
+
+Jangan hanya memperbaiki file yang pertama ditemukan. Telusuri seluruh request pipeline.
+
+12. BUAT LAYER GLOBAL
+Jika memungkinkan secara arsitektur, buat satu lapisan global seperti response sanitization/provider leak protection sehingga endpoint baru yang ditambahkan di masa depan tidak mudah membocorkan informasi provider.
+
+Namun jangan membuat duplikasi logic yang tidak diperlukan.
+
+13. FINGERPRINTING
+Tidak mungkin menjamin provider 100% tidak dapat ditebak hanya dari perilaku jaringan/model.
+
+Tetapi minimalkan fingerprint yang berasal dari gateway sendiri:
+- error format harus konsisten
+- response metadata harus konsisten
+- headers harus dikontrol gateway
+- provider-specific metadata harus dihapus
+- upstream URL/hostname tidak boleh keluar
+
+Jangan mengubah response model secara sembarangan sampai merusak kompatibilitas API.
+
+14. TEST WAJIB
+Tambahkan atau perbaiki test untuk membuktikan:
+
+- response normal tidak mengandung provider name
+- response tidak mengandung providerId
+- response tidak mengandung upstream URL
+- response headers tidak membocorkan upstream
+- error response tidak membocorkan provider
+- error response tidak membocorkan URL/hostname
+- streaming response tidak membocorkan provider
+- streaming error tidak membocorkan provider
+- /v1/models tidak membocorkan provider
+- Client API Key tidak dapat mengetahui provider mapping
+- provider internal tetap berfungsi normal
+- multi-key tetap berjalan dalam provider yang sama
+- provider-locked routing tetap berjalan
+- fallback antar-provider tetap tidak terjadi
+- existing API compatibility tetap PASS
+
+Gunakan mock provider untuk test. Jangan menggunakan credential production.
+
+15. KEAMANAN
+Jangan menghapus informasi internal dari backend/admin Provider Management karena admin memang membutuhkan informasi tersebut.
+
+Yang harus disembunyikan adalah informasi provider dari CLIENT API/public API.
+
+Pisahkan dengan jelas:
+ADMIN/INTERNAL → boleh melihat provider
+CLIENT/PUBLIC API → tidak boleh melihat provider
+
+16. SETELAH PERBAIKAN
+Jalankan lint, typecheck, build, dan test yang relevan.
+
+Jika menemukan kebocoran, perbaiki terlebih dahulu lalu jalankan test ulang.
+
+Jangan hanya membuat test yang PASS tanpa memperbaiki sumber masalah sebenarnya.
+
+Jangan menambahkan fitur COMBO sekarang.
+
+Setelah selesai laporkan:
+- file yang diaudit
+- kebocoran provider yang ditemukan
+- perbaikan yang dilakukan
+- layer/global protection yang dibuat
+- endpoint yang sudah diamankan
+- test yang ditambahkan/dijalankan
+- hasil lint
+- hasil typecheck
+- hasil build
+- hasil test
+- contoh response client sebelum dan sesudah jika memang ada perubahan
+
+Jangan menjalankan atau mengaktifkan test Gorouter.app. Jika test suite otomatis memuat Gorouter.app, skip/exclude test tersebut. NVIDIA dan TokenHarbor.ai boleh diverifikasi sesuai kebutuhan.
 
 ```
 # 
