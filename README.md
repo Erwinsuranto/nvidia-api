@@ -28,7 +28,182 @@
 ```
 # 
 ```
+Audit dan perbaiki masalah USAGE TRACKING pada project nvidia-api.
 
+Kondisi:
+Dashboard di VPS 1 masih dapat dibuka, tetapi angka usage berhenti pada nilai yang sama. Prompt Tokens, Completion Tokens, Total Tokens, dan Est. Cost/Pricing tidak bertambah setelah request baru.
+
+Source code sedang dikerjakan di VPS 2, sedangkan dashboard/service yang terlihat berjalan di VPS 1.
+
+Jangan fokus hanya pada tampilan dashboard. Cari akar masalah mengapa request baru tidak menghasilkan penambahan usage.
+
+Audit seluruh alur:
+
+Request Client
+→ API Gateway
+→ Provider
+→ Response
+→ token usage extraction
+→ usage calculation/pricing
+→ usage storage/database
+→ dashboard statistics
+→ dashboard UI
+
+Tugas:
+
+1. Cari lokasi code yang mencatat usage setiap request.
+
+2. Pastikan setiap request yang berhasil dan memiliki informasi token benar-benar membuat atau memperbarui usage record.
+
+3. Audit extraction token dari response provider, termasuk response normal dan streaming jika project mendukung streaming.
+
+Pastikan:
+- prompt tokens bertambah;
+- completion tokens bertambah;
+- total tokens bertambah;
+- request count bertambah;
+- pricing/estimated cost dihitung dari usage terbaru.
+
+4. Audit pricing calculation.
+
+Pastikan pricing tidak berhenti menggunakan snapshot/data lama dan setiap usage baru dihitung dengan pricing/model yang benar.
+
+Jangan mengubah angka pricing secara asal hanya agar dashboard terlihat bertambah.
+
+5. Audit provider-specific usage format.
+
+Provider yang berbeda dapat mengembalikan usage dengan format berbeda. Pastikan usage parser menangani semua provider yang sudah ada.
+
+Jangan hanya memperbaiki NVIDIA jika Empero, TokenHarbor, atau provider lain memiliki format response berbeda.
+
+6. Audit streaming.
+
+Jika streaming response digunakan, pastikan usage tetap dicatat setelah stream selesai.
+
+Pastikan usage tidak hilang hanya karena token usage muncul pada final chunk atau metadata tertentu.
+
+7. Audit database/storage.
+
+Pastikan usage record benar-benar:
+- INSERT saat diperlukan;
+- UPDATE jika menggunakan aggregation;
+- COMMIT/persist;
+- tidak hanya tersimpan di memory;
+- tidak tertahan karena async callback yang tidak pernah selesai.
+
+Periksa apakah ada error pada proses penyimpanan usage yang saat ini ditelan/silent.
+
+8. Audit AsyncLocalStorage/request context jika project menggunakannya.
+
+Pastikan context usage tidak hilang ketika request berpindah melalui:
+- async callback;
+- retry;
+- provider request;
+- streaming;
+- worker;
+- scheduler.
+
+9. Audit fungsi seperti runWithClientKeyContext atau mekanisme context usage yang sudah ada.
+
+Pastikan usage attribution tetap terhubung dengan Client API Key dan provider/model yang benar.
+
+10. Audit apakah usage baru sebenarnya tersimpan tetapi dashboard membaca sumber data yang salah.
+
+Bandingkan:
+- database/storage usage terbaru;
+- endpoint dashboard;
+- response endpoint dashboard;
+- angka yang ditampilkan UI.
+
+Tentukan tepat di bagian mana angka berhenti bertambah.
+
+11. Karena source code berada di VPS 2 tetapi service/dashboard berada di VPS 1, periksa kemungkinan VPS 1 menjalankan build/commit lama.
+
+Bandingkan:
+- commit/version VPS 2;
+- commit/version yang sedang berjalan di VPS 1;
+- build artifact;
+- service/process yang menjalankan aplikasi.
+
+Jika VPS 1 masih menjalankan code lama yang menyebabkan usage tidak tercatat, perbaiki deployment sesuai arsitektur project.
+
+12. Jangan menghapus data usage lama.
+
+Data yang sudah ada harus tetap dipertahankan.
+
+13. Jangan merusak:
+- Provider Management;
+- Create API Key;
+- multi-key;
+- provider-locked routing;
+- cooldown provider;
+- model registry;
+- authentication;
+- existing usage history.
+
+14. Buat test yang membuktikan usage benar-benar bertambah.
+
+Minimal test:
+
+Request 1:
+prompt tokens = X
+completion tokens = Y
+
+Pastikan setelah request:
+prompt tokens += X
+completion tokens += Y
+total tokens += X + Y
+request count += 1
+estimated cost bertambah sesuai pricing.
+
+Kemudian Request 2 dengan usage berbeda.
+
+Pastikan nilai dashboard/database menjadi akumulasi:
+previous usage + request 1 + request 2.
+
+15. Test provider yang sudah tersedia menggunakan mock response jika credential production tidak diperlukan.
+
+Pastikan parser usage bekerja untuk provider yang berbeda.
+
+16. Test streaming jika tersedia:
+stream selesai → final usage diterima → usage disimpan → dashboard bertambah.
+
+17. Pastikan jika usage extraction gagal, sistem mencatat error secara jelas dan tidak diam-diam menganggap request berhasil tanpa usage.
+
+18. Setelah perbaikan, lakukan verifikasi end-to-end:
+
+Client request
+→ provider response
+→ token extraction
+→ pricing calculation
+→ database/storage
+→ dashboard API
+→ dashboard UI.
+
+Jangan hanya melihat UI. Tunjukkan bukti bahwa record/database memang bertambah.
+
+19. Jalankan:
+- lint;
+- typecheck;
+- build;
+- test yang relevan.
+
+Jangan menjalankan atau mengaktifkan test Gorouter.app. Jika test suite otomatis memuat Gorouter.app, skip/exclude test tersebut. NVIDIA dan TokenHarbor.ai boleh diverifikasi sesuai kebutuhan.
+
+20. Jangan menambahkan fitur COMBO sekarang.
+
+Fokus hanya memperbaiki USAGE TRACKING dan PRICING agar setiap request baru benar-benar menambah token, request count, dan cost.
+
+Setelah selesai laporkan:
+- akar masalah sebenarnya;
+- bagian code tempat usage berhenti;
+- file yang diubah;
+- apakah masalah ada di token extraction, pricing, database, async context, dashboard API, deployment VPS 1, atau bagian lain;
+- hasil test sebelum dan sesudah;
+- bukti Request 1 dan Request 2 menghasilkan akumulasi usage;
+- hasil build/typecheck/lint.
+
+Jangan menyelesaikan masalah hanya dengan membuat UI melakukan refresh. Pastikan sumber data usage benar-benar bertambah.
 
 
 ```
