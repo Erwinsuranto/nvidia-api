@@ -24,7 +24,408 @@
 ```
 
 
+Implement fitur COMBO pada project nvidia-api.
 
+Tujuan:
+Admin dapat membuat aturan kombinasi untuk mengontrol user/API key mana yang boleh menggunakan model tertentu melalui provider tertentu dan API key provider tertentu.
+
+Konsep:
+COMBO = Client/User → Provider → Model → Provider API Key
+
+Admin harus bisa memilih:
+1. Client API Key / user
+2. Provider
+3. Model dari provider tersebut
+4. Provider API Key yang digunakan
+
+Aturan utama:
+- Model HARUS berasal dari provider yang dipilih.
+- API Key HARUS milik provider yang dipilih.
+- Tidak boleh memilih model dari provider lain.
+- Tidak boleh memilih API key dari provider lain.
+- Routing tetap provider-locked.
+- Jangan pernah fallback ke provider lain.
+- Jika provider/model yang dipilih gagal, jangan pindah ke provider lain.
+- Jika provider memiliki beberapa API key, yang boleh berpindah hanya antar API key milik provider yang SAMA sesuai mekanisme multi-key yang sudah ada.
+
+Tujuan fitur ini adalah agar admin dapat mengontrol secara granular user mana menggunakan model apa, provider mana, dan credential/provider API key mana.
+
+AUDIT SEBELUM CODING
+
+Sebelum mengubah code, audit implementasi yang sudah ada:
+- Client API Keys
+- provider registry/model registry
+- provider management
+- provider API key storage
+- provider-locked routing
+- multi-key rotation
+- usage attribution
+- /v1/models
+- authentication
+- admin dashboard
+
+Jangan membuat sistem kedua jika functionality yang diperlukan sudah tersedia. Gunakan dan perluas architecture yang sudah ada.
+
+DESAIN DATA COMBO
+
+Buat struktur data yang jelas, misalnya:
+
+ComboRecord {
+  id: string
+  clientKeyId: string
+  providerId: string
+  model: string
+  providerKeyId: string | null
+  status: "active" | "disabled"
+  createdAt: string
+  updatedAt: string
+  requestCount: number
+  lastUsedAt: string | null
+}
+
+Jika architecture project memiliki nama/struktur yang lebih tepat, gunakan struktur existing daripada memaksakan nama di atas.
+
+providerKeyId boleh null jika desain existing memang memiliki mode:
+"gunakan semua API key provider tersebut dengan multi-key rotation".
+
+Namun jika admin memilih API key tertentu, combo harus menggunakan credential tersebut sebagai prioritas dan tidak boleh memakai credential dari provider lain.
+
+ADMIN UI
+
+Tambahkan menu/tab:
+"Combos"
+
+Tampilkan daftar combo dengan informasi:
+- Client/API Key
+- Provider
+- Model
+- Provider API Key (masked)
+- Status
+- Request Count
+- Last Used
+- Created At
+- Action
+
+Action:
+- Create Combo
+- Enable
+- Disable
+- Edit
+- Delete
+
+FORM CREATE COMBO
+
+Urutan form:
+
+1. Pilih Client API Key/User
+2. Pilih Provider
+3. Setelah provider dipilih, tampilkan HANYA model yang dimiliki provider tersebut
+4. Setelah provider dipilih, tampilkan HANYA provider API key milik provider tersebut
+5. Simpan combo
+
+Dynamic filtering wajib dilakukan dari registry/data backend, bukan hardcode daftar provider/model di frontend.
+
+Contoh:
+Provider = Empero
+→ model dropdown hanya model Empero
+→ API key dropdown hanya API key Empero
+
+Jika Provider diganti:
+→ model lama harus di-reset
+→ API key lama harus di-reset
+→ daftar model dan API key harus diambil ulang untuk provider baru.
+
+VALIDASI BACKEND
+
+Frontend filtering tidak cukup.
+
+Backend wajib melakukan validasi ulang saat Create/Edit Combo:
+
+- clientKeyId valid
+- providerId valid
+- model valid
+- model memang terdaftar pada providerId
+- providerKeyId jika ada memang milik providerId
+- semua entity aktif
+- tidak ada cross-provider reference
+
+Jika tidak valid:
+→ HTTP 400
+→ jangan simpan data.
+
+ROUTING
+
+Saat request masuk menggunakan Client API Key:
+
+1. Identifikasi client API key.
+2. Cari combo aktif untuk client tersebut.
+3. Jika combo ditemukan untuk model yang diminta:
+   Client → Combo → Provider → Model → Provider API Key.
+4. Request hanya dikirim ke provider tersebut.
+5. Jika provider memiliki multiple API key:
+   gunakan mekanisme multi-key yang sudah ada, tetapi tetap dalam provider yang sama.
+6. Jika salah satu API key provider gagal/rate limited:
+   boleh berpindah ke API key lain MILIK PROVIDER YANG SAMA jika mekanisme multi-key mengizinkannya.
+7. JANGAN fallback ke provider lain.
+8. Jika tidak ada API key provider yang dapat digunakan:
+   return error yang sesuai.
+
+Contoh:
+
+Combo:
+User A → Empero → glm-4.5 → Empero Key 2
+
+Request:
+model = glm-4.5
+
+Routing:
+User A
+→ Empero
+→ glm-4.5
+→ Empero Key 2
+
+Jika Key 2 gagal:
+→ Key 1 Empero boleh dicoba jika multi-key aktif.
+
+Tidak boleh:
+→ NVIDIA
+→ TokenHarbor
+→ provider lainnya.
+
+MODEL ACCESS CONTROL
+
+COMBO harus menjadi salah satu sumber authorization.
+
+Jika user/API key tidak memiliki akses ke model:
+→ jangan diam-diam mencari provider lain.
+→ return error model tidak diizinkan.
+
+Jika client memiliki beberapa combo untuk model berbeda, masing-masing harus independen.
+
+Contoh:
+User A:
+- glm-4.5 → Empero
+- model-X → NVIDIA
+- model-Y → TokenHarbor
+
+Request glm-4.5:
+→ hanya Empero.
+
+Request model-X:
+→ hanya NVIDIA.
+
+Request model-Y:
+→ hanya TokenHarbor.
+
+Jika request model-Z yang tidak memiliki combo:
+→ ditolak sesuai policy access control.
+→ jangan fallback.
+
+/v1/models
+
+Audit endpoint /v1/models.
+
+Untuk Client API Key:
+- tampilkan hanya model yang memang diizinkan oleh access-control/combo client tersebut.
+- jangan bocorkan provider internal jika API contract memang dirancang menyembunyikannya.
+- jangan expose provider API key.
+- jangan expose backend URL.
+- jangan expose internal provider metadata yang dapat digunakan user untuk mengetahui sumber backend.
+
+ADMIN API
+
+Tambahkan endpoint yang diperlukan, misalnya:
+GET /admin/combos
+POST /admin/combos
+PATCH /admin/combos/:id
+DELETE /admin/combos/:id
+
+Nama endpoint boleh mengikuti convention existing project.
+
+Tambahkan endpoint catalog jika diperlukan:
+GET /admin/combos/catalog
+
+Catalog harus menyediakan:
+- provider
+- models provider
+- provider API keys yang tersedia
+
+Jangan expose secret API key asli. Hanya ID dan masked representation.
+
+SECURITY
+
+Sangat penting:
+- Provider API key asli tidak boleh dikirim ke frontend.
+- Frontend hanya menerima ID + masked value.
+- Client API key user tetap hanya ditampilkan dalam bentuk masked.
+- Jangan menyimpan plaintext secret baru jika architecture existing sudah menggunakan encryption/hash.
+- Jangan memasukkan provider credential ke response API publik.
+- Jangan membocorkan endpoint/backend URL provider kepada client.
+- Jangan membuat error message yang membeberkan credential/provider secret.
+
+USAGE
+
+Pastikan usage tracking tetap benar.
+
+Setiap request melalui combo harus tetap mencatat:
+- client API key
+- combo ID jika memungkinkan
+- provider
+- model
+- provider key identifier
+- request count
+- prompt tokens
+- completion tokens
+- total tokens
+- estimated cost
+- latency
+- status
+
+Provider API key secret tidak boleh disimpan di usage log.
+
+DASHBOARD
+
+Jika dashboard existing memiliki usage per provider/model/API key, pastikan combo tidak merusak attribution.
+
+Admin harus dapat mengetahui:
+- combo mana yang digunakan
+- user/client mana yang menggunakan
+- provider/model yang digunakan
+- provider key mana yang digunakan secara masked/ID
+- request count
+- token usage
+- cost
+
+PUBLIC API
+
+User hanya mengetahui:
+- base URL milik API kita
+- API key client miliknya
+- model yang diizinkan
+
+Jangan expose:
+- provider API key
+- provider secret
+- internal upstream URL
+- credential identifier yang sensitif
+- routing implementation detail.
+
+BACKWARD COMPATIBILITY
+
+Jangan merusak fitur yang sudah ada:
+- Provider Management
+- Create API Key
+- provider-locked routing
+- multi-key rotation
+- provider cooldown
+- usage tracking
+- pricing
+- /v1/models
+- authentication
+- existing providers
+- streaming
+- admin dashboard
+
+Jika sistem lama memiliki Client API Key dengan allowedModels, integrasikan COMBO secara konsisten dan jangan membuat dua sumber authorization yang saling bertentangan.
+
+Jika perlu migration, buat migration/backward-compatible handling untuk data existing.
+
+TEST WAJIB
+
+Tambahkan test untuk:
+
+1. Create combo valid:
+Client A + Provider A + Model A + Key A
+→ SUCCESS.
+
+2. Model provider lain:
+Client A + Provider A + Model Provider B
+→ 400.
+
+3. API key provider lain:
+Client A + Provider A + Model A + Key Provider B
+→ 400.
+
+4. Request dengan combo aktif:
+→ routing hanya ke provider combo.
+
+5. Provider gagal:
+→ TIDAK fallback ke provider lain.
+
+6. Provider API key gagal:
+→ boleh rotate ke API key provider yang SAMA jika multi-key aktif.
+
+7. Semua API key provider gagal:
+→ error dikembalikan.
+
+8. Combo disabled:
+→ request ditolak atau mengikuti policy access-control existing, tetapi jangan fallback ke provider lain.
+
+9. User tanpa combo:
+→ tidak boleh menggunakan model yang tidak diizinkan.
+
+10. /v1/models:
+→ hanya menampilkan model yang allowed untuk client tersebut.
+
+11. Provider/API key catalog:
+→ hanya provider/model/key yang sesuai yang muncul.
+
+12. Secret leakage test:
+→ response publik tidak mengandung provider API key, upstream URL, atau secret.
+
+13. Usage:
+→ request melalui combo tetap menambah request count, tokens, cost, dan attribution dengan benar.
+
+14. Multi-key:
+→ perpindahan credential hanya terjadi dalam provider yang sama.
+
+15. Streaming:
+→ combo routing tetap benar dan usage streaming tetap tercatat.
+
+TEST POLICY:
+Jangan menggunakan atau menjalankan test Gorouter.app.
+Jika test suite otomatis memuat Gorouter.app, skip/exclude test tersebut.
+NVIDIA dan TokenHarbor.ai boleh diverifikasi sesuai kebutuhan.
+
+SETELAH IMPLEMENTASI
+
+Jalankan:
+- lint
+- typecheck
+- build
+- test yang relevan
+
+Kemudian lakukan audit final terhadap:
+- provider-locked routing
+- multi-key
+- access control
+- secret leakage
+- usage attribution
+- /v1/models
+- admin UI
+
+Jangan hanya membuat UI. Pastikan COMBO benar-benar enforced di backend/routing.
+
+Jangan menambahkan fitur lain di luar COMBO sekarang.
+
+HASIL AKHIR YANG DIHARAPKAN:
+
+Admin dapat membuat:
+
+User/API Key
+↓
+Pilih Provider
+↓
+Pilih Model dari provider tersebut
+↓
+Pilih API Key provider tersebut
+↓
+Create Combo
+
+Dan request user selalu mengikuti combo tersebut.
+
+Yang boleh berpindah hanya API key dari provider yang SAMA.
+Provider tidak boleh berubah/fallback.
 ```
 # 
 ```
