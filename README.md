@@ -18,7 +18,65 @@
 ```
 
 
+Perbaiki error pada Admin → Combos yang menampilkan "Failed to load combos: [object Object]".
 
+Lakukan debugging end-to-end, jangan hanya menyembunyikan error di frontend.
+
+1. Telusuri flow lengkap halaman Combos:
+   - endpoint GET untuk mengambil combo
+   - route/controller
+   - combo-store / combo-context
+   - serialisasi response JSON
+   - dashboard frontend yang melakukan fetch dan parsing response.
+
+2. Cari penyebab sebenarnya kenapa request GET combos gagal atau response tidak sesuai schema. Periksa HTTP status, response body, content-type, dan error object yang dilempar.
+
+3. Perbaiki frontend agar error object selalu ditampilkan secara informatif (message/status/body), bukan "[object Object]", tetapi fokus utama tetap memperbaiki root cause backend.
+
+4. Pastikan GET combos mengembalikan data yang valid ketika:
+   - belum ada combo → tampilkan empty state, bukan error
+   - ada combo → semua combo tampil
+   - combo memiliki client API key
+   - combo memiliki provider
+   - combo memiliki model
+   - combo menggunakan provider API key tertentu
+   - provider API key dikosongkan untuk full multi-key rotation.
+
+5. Pastikan keamanan tetap terjaga:
+   - jangan pernah mengirim plaintext provider API key ke browser/client
+   - tampilkan hanya masked key/identifier jika diperlukan
+   - client API key juga jangan membocorkan secret/hash internal
+   - jangan expose base URL/provider credential melalui response endpoint admin maupun client endpoint yang tidak berwenang.
+
+6. Periksa juga Create Combo agar nantinya dapat memilih:
+   Client/API Key → Provider → Model → Provider API Key.
+   Model hanya boleh berasal dari provider yang dipilih.
+   Provider API Key hanya boleh berasal dari provider yang sama.
+   Validasi harus dilakukan ulang di backend, bukan hanya frontend.
+
+7. Pastikan routing Combo tetap provider-locked sesuai implementasi yang sudah ada:
+   Client → Provider → Model → Provider API Key.
+   Jangan mengubah behavior routing yang sudah lulus 22/22 test.
+
+8. Tambahkan/perbaiki test untuk kasus GET combos dan error response jika memang belum ada.
+
+9. Jalankan:
+   npm run lint
+   npm run build
+   npx vitest run tests/combos.test.ts
+
+10. Jika ada test yang gagal karena perubahan ini, perbaiki root cause-nya. Jangan menonaktifkan atau menghapus test.
+
+Jangan commit dan jangan push.
+
+Di akhir tampilkan:
+- root cause error "[object Object]"
+- file yang diubah
+- endpoint yang diperbaiki
+- contoh status/response GET combos setelah diperbaiki (tanpa secret)
+- hasil lint
+- hasil build
+- hasil test Combo.
 ```
 # 
 ```
