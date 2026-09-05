@@ -11,7 +11,140 @@
 # 
 ```
 
+Lanjutkan project NVIDIA API Proxy dari kondisi repository TERKINI.
 
+TUJUAN:
+Selesaikan fitur COMBO agar admin benar-benar bisa mengontrol user/client key mana yang boleh memakai provider + model + provider API key tertentu.
+
+KONSEP COMBO:
+Client/API Key → Provider → Model → Provider API Key
+
+ATURAN UTAMA:
+1. Satu Combo harus mengikat:
+   - clientKeyId
+   - providerId
+   - model
+   - providerKeyId (boleh null)
+2. Jika providerKeyId dipilih:
+   - request melalui Combo WAJIB menggunakan provider tersebut dan provider API key tersebut.
+   - tidak boleh pindah ke provider lain.
+   - rotasi hanya boleh ke API key lain dari provider yang sama jika memang desain existing mengizinkannya.
+3. Jika providerKeyId = null:
+   - gunakan mekanisme multi-key rotation provider yang sudah ada.
+4. Admin harus bisa mengontrol user berdasarkan client/API key melalui Combo.
+5. Jangan expose raw provider API key ke frontend/API response.
+6. Response hanya boleh menggunakan id, maskedKey, label, status, dan metadata aman lainnya.
+
+KERJAKAN DI VPS2:
+- Pastikan terlebih dahulu repository sinkron dengan origin/main.
+- Jangan menghapus perubahan lokal penting.
+- Jangan melakukan reset --hard.
+- Jangan mengubah secrets/.env production.
+
+FOKUS IMPLEMENTASI:
+
+A. PERBAIKI ERROR UI COMBOS
+Saat halaman Admin → Combos dibuka sekarang muncul:
+"Failed to load combos: [object Object]"
+
+Cari penyebab sebenarnya dari response GET /admin/combos.
+Pastikan frontend menangani error object dengan benar sehingga pesan error asli terlihat, bukan "[object Object]".
+
+GET /admin/combos harus:
+- mengembalikan HTTP 200 ketika belum ada Combo: [] / empty state.
+- mengembalikan data Combo yang valid ketika ada.
+- tidak pernah membocorkan raw provider key.
+- error response konsisten berupa JSON/string yang dapat dipahami frontend.
+
+B. BUAT/FIX FORM "CREATE COMBO"
+Admin harus dapat memilih secara berurutan:
+
+1. Client / API Key
+   - tampilkan client key yang tersedia
+   - gunakan id internal
+   - tampilkan label/masked key, jangan raw key
+
+2. Provider
+   - pilih provider yang tersedia/aktif sesuai aturan existing
+
+3. Model
+   - setelah provider dipilih, tampilkan model yang tersedia untuk provider tersebut
+   - jangan mengizinkan model provider lain
+
+4. Provider API Key
+   - setelah provider dipilih, tampilkan API key milik provider tersebut
+   - tampilkan label + maskedKey + status
+   - jangan tampilkan raw key
+   - sediakan opsi "Auto / Provider Rotation" yang menghasilkan providerKeyId = null
+   - jika memilih key tertentu, simpan providerKeyId yang benar
+
+C. VALIDASI
+Sebelum POST/PATCH:
+- clientKeyId wajib valid
+- providerId wajib valid
+- model wajib valid untuk provider tersebut
+- providerKeyId jika diisi harus benar-benar milik provider yang dipilih
+- Combo duplicate harus ditolak secara aman
+- error harus tampil jelas di UI
+
+D. EDIT / DELETE / STATUS
+Pastikan Combo yang sudah dibuat dapat:
+- dilihat
+- diedit
+- dihapus
+- diaktifkan/nonaktifkan jika struktur existing mendukung status
+
+Jangan merusak endpoint/provider routing yang sudah lulus test.
+
+E. ROUTING
+Pastikan request menggunakan client API key yang mempunyai Combo:
+- menemukan Combo berdasarkan clientKeyId
+- jika ada Combo yang cocok dengan model/request:
+  provider dikunci ke provider Combo
+  model dikunci ke model Combo
+  providerKeyId digunakan jika ditentukan
+- tidak boleh fallback diam-diam ke provider lain ketika Combo provider-locked
+- jika providerKeyId null, gunakan rotation key provider yang existing
+
+F. BACKEND SAFETY
+Periksa endpoint:
+- GET /admin/combos
+- GET /admin/combos/catalog
+- POST /admin/combos
+- PATCH /admin/combos/:id
+- DELETE /admin/combos/:id
+
+Pastikan kontrak request/response konsisten dengan frontend.
+
+JANGAN:
+- membuat ulang arsitektur Combo dari nol
+- menghapus combo-store yang sudah ada
+- menghapus tests yang sudah lulus
+- mengubah provider routing di luar kebutuhan Combo
+- menguji Gorouter.app
+- menjalankan integration test Gorouter.app
+
+VERIFIKASI WAJIB:
+1. npm run lint
+2. npm run build
+3. npx vitest run tests/combos.test.ts
+4. jika perlu tambahkan test khusus untuk:
+   - GET combos empty state
+   - GET combos dengan data
+   - create combo
+   - provider/model/providerKeyId validation
+   - provider-key mismatch ditolak
+   - provider-locked routing
+   - providerKeyId null → provider rotation
+   - tidak ada raw provider key di response
+
+SETELAH SELESAI:
+- tampilkan ringkasan file yang diubah
+- tampilkan hasil lint/build/test
+- jika semua PASS, commit perubahan dengan pesan yang jelas
+- push ke origin/main
+
+Fokus hanya menyelesaikan fitur Combo end-to-end. Jangan melakukan refactor besar yang tidak diperlukan.
 
 ```
 # 
