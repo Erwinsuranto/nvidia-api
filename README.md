@@ -60,7 +60,541 @@
 ```
 
 
+Lanjutkan tahap berikutnya: buat ADMIN UI ROUTE MANAGEMENT GENERIC untuk sistem multi-route provider yang sudah selesai dibuat dan sudah terhubung ke runtime.
 
+TUJUAN:
+Saya ingin dapat menambahkan dan mengelola banyak endpoint/route melalui Admin UI tanpa coding source setiap kali ada Base URL/endpoint baru.
+
+Contoh:
+Provider: kie.ai
+Base URL: https://api.kie.ai
+
+Routes:
+- Gemini → /gemini/v1/models/{model}:streamGenerateContent
+- Claude → /claude/v1/messages
+- Codex → /codex/v1/responses
+
+Di masa depan saya ingin cukup membuka Admin UI → Provider → Routes → Add Route, lalu mengisi konfigurasi route.
+
+==================================================
+ATURAN UTAMA
+==================================================
+
+1. Implementasikan secara GENERIC untuk semua provider.
+2. Jangan membuat UI khusus hardcoded untuk Kie.ai.
+3. Jangan membuat:
+   if provider === "kie.ai"
+   untuk menentukan tampilan atau behavior route.
+4. Gunakan RouteConfig/route registry yang sudah dibuat pada tahap sebelumnya.
+5. Provider existing tetap bekerja seperti sebelumnya.
+6. Jangan mengubah provider-locked routing.
+7. Jangan mengubah API key storage.
+8. Jangan mengubah Combo behavior selain kebutuhan routeId.
+9. Jangan mengubah provider refresh cooldown 180 detik.
+10. Jangan mengubah backup system.
+11. Jangan mengubah nginx.
+12. Jangan restart PM2.
+13. Jangan commit/push.
+
+==================================================
+1. AUDIT ADMIN UI EXISTING
+==================================================
+
+Sebelum coding:
+
+Audit:
+- src/admin/*
+- routes/admin.ts
+- endpoint GET/POST/PATCH/DELETE Admin existing
+- authentication admin
+- provider management UI
+- model management UI
+- API key management UI
+- Backup & Restore UI
+- styling/component pattern existing.
+
+Gunakan pola UI existing.
+
+Jangan membuat framework/UI system baru jika tidak diperlukan.
+
+==================================================
+2. DESAIN UI
+==================================================
+
+Tambahkan bagian:
+
+Provider
+→ Routes / Endpoints
+
+Setiap provider dapat memiliki banyak route.
+
+Contoh tampilan:
+
+Kie.ai
+
+Base URL:
+https://api.kie.ai
+
+Routes:
+
+┌────────────────────────────────────────────┐
+│ Gemini                                     │
+│ /gemini/v1/models/{model}:streamGenerate...│
+│ Protocol: Gemini                           │
+│ Method: POST                               │
+│ Streaming: ON                              │
+│ Status: Enabled                            │
+│ [Edit] [Disable]                           │
+└────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────┐
+│ Claude                                     │
+│ /claude/v1/messages                        │
+│ Protocol: Anthropic Messages               │
+│ Method: POST                               │
+│ Streaming: ON                              │
+│ Status: Enabled                            │
+│ [Edit] [Disable]                           │
+└────────────────────────────────────────────┘
+
+dan seterusnya.
+
+Jangan membuat tampilan yang hanya berlaku untuk Kie.ai.
+
+==================================================
+3. ADD ROUTE
+==================================================
+
+Buat tombol:
+
++ Add Route
+
+Form minimal:
+
+- Provider
+- Route Name
+- Route ID
+- Path
+- Protocol
+- HTTP Method
+- Streaming
+- Enabled
+- Model Mapping / Model Pattern
+- Priority jika architecture existing membutuhkan.
+
+Provider harus dipilih dari provider registry existing.
+
+Jangan mengizinkan user memasukkan providerId arbitrary yang tidak terdaftar.
+
+==================================================
+4. ROUTE PATH
+==================================================
+
+Path harus relatif.
+
+VALID:
+
+/gemini/v1/models/{model}:streamGenerateContent
+
+/claude/v1/messages
+
+/codex/v1/responses
+
+INVALID:
+
+https://example.com/api
+
+//example.com/api
+
+file:///etc/passwd
+
+../etc/passwd
+
+dan bentuk lain yang dapat keluar dari base URL provider.
+
+Gunakan validator backend existing yang sudah dibuat pada tahap sebelumnya.
+
+Jangan hanya mengandalkan validasi frontend.
+
+==================================================
+5. PROTOCOL
+==================================================
+
+Protocol harus menggunakan registry protocol yang sudah dibuat.
+
+Minimal pilihan:
+
+- openai-chat
+- openai-responses
+- anthropic-messages
+- gemini
+
+Jangan membuat protocol bebas berupa arbitrary string jika registry existing dapat digunakan.
+
+Jika protocol baru ditambahkan ke registry di masa depan, UI dapat mengenalinya tanpa perlu membuat form khusus provider.
+
+==================================================
+6. MODEL MAPPING
+==================================================
+
+Route harus dapat menentukan model yang dapat menggunakan route tersebut.
+
+Dukung pola seperti:
+
+gemini-*
+
+claude-*
+
+gpt-*-codex
+atau explicit model list sesuai kemampuan architecture existing.
+
+Jangan membuat resolver baru yang berbeda dari resolver runtime.
+
+Admin UI harus menggunakan model/route registry yang sama dengan runtime.
+
+Contoh:
+
+kie-gemini:
+  gemini-*
+
+kie-claude:
+  claude-*
+
+kie-codex:
+  model Codex yang sesuai.
+
+Pastikan model mapping tidak dapat mengarahkan route ke provider lain.
+
+==================================================
+7. EDIT ROUTE
+==================================================
+
+Setiap route harus dapat:
+
+- Edit
+- Enable
+- Disable
+
+Jika route sedang disabled:
+- tidak boleh dipilih runtime.
+- tidak boleh dipilih Combo.
+- tetap tersimpan di registry.
+- jangan dihapus.
+
+Jangan menghapus route ketika Disable.
+
+==================================================
+8. DELETE ROUTE
+==================================================
+
+Jika architecture memungkinkan delete:
+
+- tampilkan confirmation.
+- jangan delete jika route masih digunakan oleh Combo/model mapping tanpa melakukan validasi.
+- lebih aman gunakan disable daripada hard delete.
+- jangan menghapus route secara diam-diam.
+
+Jika route sedang dipakai Combo:
+- return error yang jelas atau minta user disable/reassign terlebih dahulu.
+
+Jangan merusak Combo existing.
+
+==================================================
+9. ROUTE ID
+==================================================
+
+Route ID harus unik.
+
+Minimal uniqueness:
+
+providerId + routeId
+
+Jangan izinkan:
+
+kie.ai + kie-gemini
+dua kali.
+
+Jika routeId kosong dan architecture existing mendukung auto-generation:
+- generate ID yang aman dan stabil.
+- jangan menggunakan random ID setiap reload.
+
+==================================================
+10. HEALTH CHECK / TEST ROUTE
+==================================================
+
+Jika architecture existing sudah memiliki health-check infrastructure, tambahkan tombol:
+
+[ Test ]
+
+untuk route.
+
+Namun:
+
+- jangan menampilkan API key.
+- gunakan provider key storage existing.
+- gunakan provider yang sama.
+- jangan cross-provider.
+- jangan bypass cooldown.
+- jangan menjadikan test route sebagai refresh provider otomatis.
+- validasi SSRF tetap berlaku.
+
+Jika health check membutuhkan credential nyata dan belum tersedia:
+- gunakan error yang aman.
+- jangan melakukan request arbitrary.
+
+==================================================
+11. API ENDPOINT ADMIN
+==================================================
+
+Tambahkan endpoint Admin mengikuti konvensi existing.
+
+Minimal kebutuhan:
+
+GET    /admin/providers/:providerId/routes
+POST   /admin/providers/:providerId/routes
+PATCH  /admin/providers/:providerId/routes/:routeId
+DELETE /admin/providers/:providerId/routes/:routeId
+
+Jika architecture existing lebih cocok menggunakan endpoint lain, ikuti konvensinya.
+
+SEMUA endpoint wajib menggunakan admin authentication existing.
+
+Non-admin:
+→ 401/403 sesuai kontrak existing.
+
+Jangan membuat endpoint route public.
+
+==================================================
+12. VALIDASI BACKEND
+==================================================
+
+Backend wajib memvalidasi:
+
+- provider exists
+- routeId valid
+- routeId unique
+- path relative
+- path aman
+- no absolute URL
+- no scheme
+- no host replacement
+- placeholder valid
+- protocol tersedia di registry
+- method valid
+- streaming boolean
+- model mapping valid
+- enabled boolean
+- priority valid jika digunakan.
+
+Jangan mempercayai validasi frontend.
+
+==================================================
+13. KIE.AI
+==================================================
+
+Pastikan setelah UI selesai, tiga route existing Kie.ai muncul sebagai data/configuration:
+
+kie-gemini
+/gemini/v1/models/{model}:streamGenerateContent
+gemini
+
+kie-claude
+/claude/v1/messages
+anthropic-messages
+
+kie-codex
+/codex/v1/responses
+openai-responses
+
+Jangan membuat route tersebut terduplikasi.
+
+Jika sudah ada route dari registry:
+- tampilkan existing route.
+- jangan membuat ulang.
+
+==================================================
+14. PERSISTENCE
+==================================================
+
+Audit bagaimana provider/model/config saat ini dipersist.
+
+Route configuration harus memiliki persistence yang konsisten.
+
+Jangan:
+- menyimpan hanya di memory.
+- kehilangan route setelah restart.
+- membuat file persistence baru jika existing config store dapat diperluas dengan aman.
+
+Pastikan:
+Admin UI save
+→ persistent store
+→ runtime registry
+→ resolver
+
+dan setelah restart:
+persistent store
+→ registry
+→ runtime tetap mengetahui route.
+
+Jangan menyimpan API key di route configuration.
+
+==================================================
+15. COMBO
+==================================================
+
+Pastikan Admin UI route management kompatibel dengan Combo.
+
+Combo routeId harus tetap valid jika route:
+- enabled
+- disabled
+- di-edit.
+
+Jika route dihapus/disabled:
+- Combo harus mengetahui statusnya.
+- jangan fallback otomatis ke provider lain.
+
+Combo lama tanpa routeId tetap backward-compatible.
+
+==================================================
+16. PROVIDER LOCKING
+==================================================
+
+WAJIB test:
+
+Provider Kie.ai:
+→ route Kie.ai
+→ Kie.ai base URL
+
+Tidak boleh:
+
+Kie.ai
+→ route OpenRouter
+
+atau:
+
+OpenRouter
+→ route Kie.ai
+
+Route hanya boleh dipakai oleh provider pemiliknya.
+
+==================================================
+17. BACKWARD COMPATIBILITY
+==================================================
+
+Provider lama yang belum menggunakan multi-route harus tetap menggunakan legacy behavior/default route.
+
+Jangan memaksa semua provider existing mengisi route secara manual.
+
+Pastikan:
+hasRoutes() false
+→ legacy path existing.
+
+Provider dengan route:
+hasRoutes() true
+→ route resolver.
+
+Jangan mengubah behavior provider existing.
+
+==================================================
+18. UI UX
+==================================================
+
+Gunakan style Admin UI existing.
+
+Tambahkan:
+
+- loading state
+- save state
+- error state
+- confirmation delete
+- enable/disable feedback
+- validation error
+- success feedback.
+
+Mobile-friendly karena Admin UI digunakan melalui browser mobile juga.
+
+Jangan membuat halaman baru yang tidak diperlukan jika section existing dapat diperluas.
+
+==================================================
+19. TEST
+==================================================
+
+Tambahkan test serial untuk:
+
+1. Admin GET routes
+2. Admin POST route
+3. Admin PATCH route
+4. Admin DELETE/disable route
+5. non-admin denied
+6. invalid provider
+7. duplicate routeId
+8. invalid path
+9. absolute URL rejected
+10. SSRF/path traversal rejected
+11. invalid protocol rejected
+12. model mapping
+13. disabled route
+14. persistence
+15. restart persistence
+16. Combo routeId
+17. provider locking
+18. Kie.ai 3 routes
+19. backward compatibility provider existing
+20. UI route rendering jika existing UI test framework mendukung.
+
+Jalankan test secara SERIAL.
+
+Jangan menjalankan atau mengubah test Gorouter.app.
+
+==================================================
+20. VERIFIKASI
+==================================================
+
+Setelah implementasi:
+
+- test serial
+- lint
+- build
+
+Audit kembali:
+
+- tidak ada provider-specific route UI
+- tidak ada hardcoded Kie.ai URL di core
+- tidak ada raw API key
+- tidak ada cross-provider fallback
+- tidak ada SSRF
+- tidak ada perubahan .env
+- tidak ada perubahan nginx
+- tidak ada restart PM2
+- tidak ada perubahan provider existing yang tidak diperlukan.
+
+==================================================
+21. LAPORAN AKHIR
+==================================================
+
+Berikan:
+
+A. File yang diubah.
+B. Endpoint Admin baru.
+C. Struktur UI.
+D. Struktur RouteConfig.
+E. Persistence.
+F. Protocol registry.
+G. Model mapping.
+H. Kie.ai route result.
+I. Combo compatibility.
+J. Security validation.
+K. Provider-locking result.
+L. Test result.
+M. Lint result.
+N. Build result.
+O. Git diff/status.
+
+JANGAN commit.
+JANGAN push.
+JANGAN restart PM2.
+
+Jika ada perubahan arsitektur besar yang diperlukan, berhenti dan jelaskan sebelum menerapkannya.
 ```
 
 # 
