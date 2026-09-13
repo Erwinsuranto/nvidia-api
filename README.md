@@ -52,7 +52,385 @@
 ```
 # 
 ```
+SEKARANG PERBAIKI MASALAH EST. COST / UANG PEMAKAIAN.
 
+Project:
+ /root/nvidia-api
+
+BASELINE:
+- Git sudah sinkron.
+- Perubahan Kie.ai retry sudah selesai dan sudah diverifikasi.
+- Jangan mengubah kembali retry Kie.ai.
+- OpenCode Inference sudah live verified HTTP 200.
+- Jangan menyentuh Muse.
+
+MASALAH:
+Admin Overview menunjukkan token terus bertambah, tetapi:
+
+Est. Cost (Total):
+$1,865.996
+
+terlihat tetap/frozen.
+
+Contoh usage saat ini:
+- Prompt Tokens: 3,270,669,810
+- Completion Tokens: 14,597,039
+- Total Tokens: 3,285,296,879
+
+Tujuan:
+Perbaiki agar `Est. Cost (Total)` benar-benar mengikuti usage/token terbaru berdasarkan pricing yang valid.
+
+ATURAN PALING PENTING:
+
+1. AUDIT SOURCE TERLEBIH DAHULU.
+2. Setelah root cause ditemukan, langsung lakukan perbaikan minimal jika harga/pricing yang dibutuhkan sudah tersedia di source.
+3. Jangan menebak harga model.
+4. Jangan membuat harga palsu hanya agar angka cost bergerak.
+5. Jangan reset/menghapus usage lama.
+6. Jangan mengubah token usage.
+7. Jangan mengubah routing provider.
+8. Jangan mengubah provider locking.
+9. Jangan mengubah Combo.
+10. Jangan mengubah KeyManager.
+11. Jangan mengubah retry Kie.ai.
+12. Jangan mengubah OpenCode Inference/session forwarding.
+13. Jangan menyentuh Muse.
+14. Jangan mengubah nginx/authentication.
+15. Jangan melakukan request upstream.
+
+FOKUS HANYA:
+usage → pricing → cost calculation → aggregation → Admin Overview.
+
+==================================================
+1. CARI ROOT CAUSE
+==================================================
+
+Cari seluruh source yang berkaitan dengan:
+- estimated cost
+- total cost
+- cost
+- pricing
+- input price
+- output price
+- cached token price
+- usage aggregation
+
+Telusuri alur lengkap:
+
+upstream usage
+→ normalized usage
+→ usage record
+→ pricing lookup
+→ cost calculation
+→ usage store
+→ aggregate
+→ Admin API
+→ Admin Overview
+
+Temukan titik persis di mana token bertambah tetapi cost tidak ikut bertambah.
+
+==================================================
+2. PERIKSA PRICING LOOKUP
+==================================================
+
+Periksa apakah pricing dicari berdasarkan:
+
+provider + model
+
+atau hanya:
+
+model
+
+Pastikan model ID yang digunakan usage record sama dengan model ID di pricing registry.
+
+Periksa kemungkinan mismatch:
+- provider prefix
+- model alias
+- model registry
+- provider ID
+- model ID
+- case sensitivity
+- fallback pricing
+- undefined/null pricing
+
+Jangan mengarang pricing.
+
+==================================================
+3. PERIKSA PERHITUNGAN
+==================================================
+
+Pastikan rumus yang digunakan benar sesuai format pricing existing.
+
+Jika pricing menggunakan USD per 1M token, misalnya secara konsep:
+
+inputCost =
+promptTokens / 1_000_000 * inputPrice
+
+outputCost =
+completionTokens / 1_000_000 * outputPrice
+
+cachedCost =
+cachedTokens / 1_000_000 * cachedPrice
+
+totalCost =
+inputCost + outputCost + cachedCost
+
+JANGAN menerapkan rumus di atas secara membabi buta.
+Ikuti unit pricing yang benar-benar digunakan oleh registry/config existing.
+
+Periksa juga:
+- rounding terlalu awal
+- integer division
+- string → number
+- cents → USD
+- USD → cents
+- Number precision
+- BigInt conversion
+- NaN
+- Infinity
+- undefined/null
+
+Cost harus dihitung dengan precision yang cukup dan rounding hanya pada tahap presentation/storage yang memang diperlukan.
+
+==================================================
+4. PERIKSA KENAPA $1,865.996 TETAP
+==================================================
+
+Tentukan apakah angka tersebut berasal dari:
+
+A. aggregate lama;
+B. pricing yang frozen;
+C. cache;
+D. snapshot;
+E. database/state lama;
+F. UI tidak mengambil nilai terbaru;
+G. usage record baru cost = 0;
+H. pricing lookup gagal;
+I. accumulator tidak diperbarui;
+J. kombinasi beberapa masalah.
+
+Jangan menghapus angka lama.
+
+Jika backend sebenarnya sudah menghitung cost baru tetapi UI menampilkan angka lama:
+→ perbaiki UI/API refresh saja.
+
+Jika backend cost memang tidak bertambah:
+→ perbaiki cost pipeline.
+
+==================================================
+5. PROVIDER/MODEL AUDIT
+==================================================
+
+Periksa provider/model yang menyumbang usage.
+
+Buat laporan:
+
+provider | model | token usage | pricing tersedia | cost dihitung
+
+Fokus terutama model dengan token terbesar.
+
+Periksa:
+- NVIDIA
+- Kie.ai
+- Zen
+- OpenCode Inference
+- provider lainnya
+
+Jika model tidak memiliki pricing:
+- jangan membuat harga;
+- cost untuk model tersebut harus ditangani sesuai behavior existing;
+- laporkan sebagai `pricing unavailable`.
+
+Namun model lain yang pricing-nya valid HARUS tetap masuk aggregate cost.
+
+==================================================
+6. OPENCORE INFERENCE
+==================================================
+
+Pastikan penambahan:
+`opencode-inference`
+
+tidak merusak cost calculation.
+
+Untuk:
+- big-pickle
+- mimo-v2.5-free
+- nemotron-3-super-free
+
+Jika pricing tidak tersedia:
+JANGAN mengarang harga.
+
+Pastikan record usage tetap valid dan tidak membuat aggregate cost berhenti menghitung provider lain.
+
+==================================================
+7. KIE.AI
+==================================================
+
+Jangan mengubah retry Kie.ai.
+
+Hanya periksa apakah usage Kie.ai masuk ke cost calculation dengan benar.
+
+Jangan request upstream.
+
+==================================================
+8. ADMIN OVERVIEW
+==================================================
+
+Cari source yang menghasilkan:
+
+`Est. Cost (Total)`
+
+Pastikan nilai tersebut berasal dari data usage terbaru.
+
+Periksa:
+- endpoint API
+- server aggregation
+- frontend state
+- cache
+- refresh 30 detik
+- transform response
+- number formatting
+
+Jangan mengubah desain UI.
+
+Hanya perbaiki sumber angka jika memang diperlukan.
+
+==================================================
+9. IMPLEMENTASI
+==================================================
+
+Setelah root cause ditemukan:
+
+- lakukan perubahan MINIMAL;
+- pertahankan arsitektur existing;
+- jangan membuat sistem cost kedua;
+- jangan membuat accumulator paralel;
+- jangan hardcode `$1,865.996`;
+- jangan hardcode harga model yang belum diketahui;
+- jangan mengubah historical usage.
+
+Jika ada fungsi cost existing yang salah:
+→ perbaiki fungsi tersebut.
+
+Jika pricing lookup salah:
+→ perbaiki lookup.
+
+Jika aggregation salah:
+→ perbaiki aggregation.
+
+Jika UI salah:
+→ perbaiki UI/API.
+
+Jika lebih dari satu titik bermasalah:
+→ perbaiki hanya titik yang memang terbukti bermasalah.
+
+==================================================
+10. TEST WAJIB
+==================================================
+
+Tambahkan/update test secara SERIAL.
+
+A. Pricing valid:
+promptTokens + completionTokens
+→ cost > 0.
+
+B. Incremental usage:
+record 1 = cost X
+record 2 = tambahan token
+→ aggregate cost > X.
+
+C. Multiple records:
+aggregate harus sama dengan jumlah cost record yang valid.
+
+D. Missing pricing:
+→ tidak crash;
+→ tidak mengarang harga.
+
+E. Cached tokens:
+→ mengikuti cached pricing jika registry mendukung.
+
+F. Provider + model lookup:
+→ pricing yang benar dipilih.
+
+G. Model alias/prefix:
+→ tidak salah resolve.
+
+H. Decimal precision:
+→ tidak kehilangan cost karena integer division/rounding.
+
+I. Large token count:
+Gunakan angka miliaran seperti usage nyata.
+Pastikan tidak overflow/precision error yang menyebabkan cost berhenti.
+
+J. Admin aggregation:
+usage baru masuk
+→ Est. Cost Total ikut bertambah.
+
+K. Regression:
+provider existing tetap menghitung cost.
+
+L. OpenCode Inference:
+jika pricing unavailable, tidak merusak aggregate provider lain.
+
+M. Kie.ai:
+usage/cost pipeline tetap normal.
+
+==================================================
+11. VERIFICATION
+==================================================
+
+Jalankan SERIAL:
+
+1. test pricing/cost
+2. test usage
+3. test provider/model registry
+4. test Admin usage/cost jika tersedia
+5. test regression provider terkait
+6. npm run lint
+7. npm run build
+
+Jangan menjalankan test paralel.
+
+Tidak boleh ada upstream request.
+
+==================================================
+12. SETELAH SELESAI
+==================================================
+
+Tampilkan:
+
+A. ROOT CAUSE
+B. File yang berubah
+C. Fungsi yang diperbaiki
+D. Penyebab `$1,865.996` frozen
+E. Mekanisme cost sebelum perbaikan
+F. Mekanisme cost setelah perbaikan
+G. Provider/model yang pricing-nya tersedia
+H. Provider/model yang pricing-nya belum tersedia
+I. Test result
+J. Lint result
+K. Build result
+L. Apakah aggregate cost sekarang benar-benar bertambah saat usage baru masuk
+M. git status --short
+
+ATURAN AKHIR:
+- Jangan commit.
+- Jangan push.
+- Jangan restart.
+- Jangan request upstream.
+- Jangan mengubah retry Kie.ai.
+- Jangan mengubah OpenCode Inference.
+- Jangan mengubah Zen.
+- Jangan menyentuh Muse.
+- Jangan mengubah routing/provider.
+- Jangan menghapus historical usage.
+- Jangan mengarang harga.
+
+Jika root cause membutuhkan harga yang tidak tersedia di repository/config, STOP pada titik tersebut dan laporkan model mana yang membutuhkan pricing resmi. Jangan menebak.
+
+Jika root cause bisa diperbaiki tanpa menentukan harga baru, lakukan perbaikan dan verification.
+
+STOP setelah selesai.
 
 
 ```
