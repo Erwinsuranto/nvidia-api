@@ -36,7 +36,140 @@
 ```
 
 
+PERBAIKI CLIENT API KEYS DI VPS DEVELOPMENT INI.
 
+PENTING:
+- Ini VPS DEVELOPMENT/WORKSPACE, BUKAN PRODUCTION.
+- Jangan deploy, restart production, commit, atau push.
+- Jangan mengubah provider routing, provider locking, Combo, retry, pricing, OpenCode Inference, Kie.ai, atau fitur lain yang tidak terkait Client API Keys.
+- Audit implementasi yang ada terlebih dahulu sebelum mengubah kode.
+- Pertahankan security rule: RAW CLIENT API KEY hanya boleh ditampilkan sekali saat creation jika memang desain saat ini demikian. Jangan membuat endpoint untuk mengambil kembali raw key dari server/database.
+
+MASALAH YANG TERLIHAT:
+
+A. DELETE CLIENT API KEY GAGAL
+Admin UI menampilkan:
+"Failed to delete client API key
+Body cannot be empty when content-type is set to 'application/json'"
+
+Kemungkinan request DELETE mengirim:
+Content-Type: application/json
+tetapi body kosong.
+
+Tugas:
+1. Trace alur lengkap:
+   Admin UI Delete button
+   → frontend fetch/request
+   → DELETE /admin/... client API key
+   → route/controller
+   → client API key store/persistence.
+
+2. Perbaiki request DELETE supaya tidak mengirim
+   Content-Type: application/json jika memang tidak ada body.
+
+3. Jika backend memang membutuhkan JSON body, gunakan body JSON yang valid.
+   Pilih solusi yang paling konsisten dengan arsitektur existing.
+   Jangan mengubah API contract tanpa alasan.
+
+4. Setelah delete berhasil:
+   - key benar-benar dihapus dari storage/state;
+   - tidak muncul lagi setelah refresh;
+   - tidak bisa digunakan lagi;
+   - key lain tidak ikut terhapus;
+   - error handling tetap jelas.
+
+5. Jangan menyelesaikan masalah dengan menghapus validasi backend secara sembarangan.
+
+B. TAMBAHKAN COPY KEY
+
+UI Client API Keys saat ini tidak mempunyai tombol "Copy Key".
+
+Audit dulu bagaimana hasil creation API key dikembalikan dan bagaimana raw key saat ini ditampilkan.
+
+Implementasikan UX yang aman:
+1. Setelah Create API Key berhasil dan raw key diberikan untuk pertama kali:
+   - tampilkan raw key sesuai desain existing;
+   - sediakan tombol "Copy Key";
+   - tombol menggunakan Clipboard API dengan fallback yang wajar jika diperlukan;
+   - tampilkan feedback "Copied" / "Key copied" yang jelas.
+
+2. Jangan menyimpan raw key baru di localStorage/sessionStorage/cookie hanya untuk menyediakan fitur copy.
+
+3. Jangan membuat endpoint GET untuk mengambil raw key lama.
+
+4. Setelah user meninggalkan creation/result state atau reload halaman:
+   - raw key tidak boleh tiba-tiba muncul kembali;
+   - Copy Key hanya tersedia ketika raw key memang masih tersedia dari hasil creation saat itu.
+
+5. Jika UI existing sudah punya modal/result panel setelah creation, integrasikan tombol Copy Key di sana, jangan membuat halaman baru yang tidak diperlukan.
+
+C. DELETE + COPY TEST
+
+Tambahkan/perbaiki test untuk:
+
+DELETE:
+- DELETE request tanpa body tidak menyebabkan error Content-Type.
+- delete sukses.
+- deleted key tidak lagi tersedia.
+- key lain tetap ada.
+- repeated delete terhadap key yang sudah tidak ada menghasilkan behavior/error yang sesuai existing contract.
+- backend storage ikut berubah.
+
+COPY:
+- tombol Copy Key muncul setelah creation berhasil.
+- clipboard menerima raw key yang baru dibuat.
+- raw key tidak dapat diambil kembali melalui endpoint setelah creation.
+- refresh halaman tidak mengembalikan raw key lama.
+- jangan expose raw key dalam log/error/debug output.
+
+D. SECURITY AUDIT
+
+Pastikan selama perubahan:
+- raw client API keys tidak ditulis ke console.log;
+- tidak dimasukkan ke error message;
+- tidak ditambahkan ke API response GET/list;
+- list Client API Keys tetap hanya menampilkan metadata/masked identifier sesuai desain;
+- Delete hanya membutuhkan identifier yang memang sudah digunakan UI;
+- tidak ada perubahan yang melemahkan hashing/encryption/storage security.
+
+E. VERIFIKASI
+
+Jalankan test SECARA SERIAL.
+
+Minimal:
+1. test Client API Keys yang sudah ada
+2. test route/admin terkait
+3. test regression provider-routes jika memang terdampak
+4. npm run lint
+5. npm run build
+
+Jika memungkinkan lakukan runtime verification di DEVELOPMENT:
+- buat 1 test Client API Key;
+- pastikan raw key muncul sekali;
+- pastikan tombol Copy Key bekerja;
+- delete key tersebut dari Admin;
+- refresh;
+- pastikan key sudah hilang.
+
+Jangan menggunakan production key atau production data.
+
+SETELAH SELESAI TAMPILKAN:
+- root cause DELETE;
+- root cause tidak adanya Copy Key;
+- file yang diubah;
+- bagaimana DELETE sekarang dikirim;
+- bagaimana Copy Key bekerja;
+- konfirmasi raw key tetap one-time;
+- hasil test;
+- lint;
+- build;
+- git diff --stat;
+- git status --short.
+
+STOP.
+Jangan commit.
+Jangan push.
+Jangan deploy production.
 ```
 # 
 ```
