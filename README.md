@@ -28,7 +28,183 @@
 ```
 # 
 ```
+PERBAIKI UI CLIENT API KEYS DI VPS DEVELOPMENT.
 
+PENTING:
+- Ini VPS DEVELOPMENT/WORKSPACE, BUKAN PRODUCTION.
+- Jangan commit/push.
+- Jangan deploy/restart production.
+- Jangan mengubah routing/provider locking/Combo/Client API Key backend.
+- Fokus hanya UX pemilihan Provider dan Model pada form Create API Key.
+- Audit kode existing terlebih dahulu sebelum coding.
+
+MASALAH:
+Pada form Create API Key:
+1. "Select Provider" sekarang berupa dropdown/modal berisi banyak provider.
+2. Setelah provider dipilih, daftar model juga sangat banyak.
+3. User sulit mencari provider/model tertentu karena belum ada search field.
+
+TUJUAN:
+Tambahkan pencarian yang cepat dan nyaman untuk:
+A. Cari Provider
+B. Cari Models
+
+A. SEARCH PROVIDER
+
+Pada modal/dropdown "Select Provider", tambahkan search input di bagian atas.
+
+Contoh:
+┌─────────────────────────────┐
+│ 🔍 Search provider...       │
+├─────────────────────────────┤
+│ NVIDIA NIM (nvidia)         │
+│ OpenRouter (openrouter)     │
+│ JustWoker (justwoker)       │
+│ ...                         │
+└─────────────────────────────┘
+
+Behavior:
+- pencarian realtime saat user mengetik;
+- case-insensitive;
+- cocokkan minimal terhadap:
+  - provider display name
+  - provider ID/key
+- contoh:
+  "nvidia" → NVIDIA NIM
+  "open" → OpenRouter
+  "just" → JustWoker
+- provider yang tidak cocok disembunyikan dari hasil.
+- tampilkan "No providers found" jika tidak ada hasil.
+- jumlah model provider tetap ditampilkan.
+- memilih provider tetap menggunakan mekanisme existing.
+
+B. SEARCH MODELS
+
+Setelah provider dipilih dan daftar model ditampilkan, tambahkan search input di atas daftar model.
+
+Contoh:
+┌─────────────────────────────┐
+│ 🔍 Search models...         │
+├─────────────────────────────┤
+│ ☐ GLM-5.3-Flash             │
+│ ☐ GLM-5.3                    │
+│ ☐ DeepSeek-V4.1-Flash       │
+│ ...                         │
+└─────────────────────────────┘
+
+Behavior:
+- realtime filtering;
+- case-insensitive;
+- cocokkan terhadap model ID/name yang memang digunakan aplikasi;
+- partial match;
+- model yang tidak cocok disembunyikan;
+- "No models found" jika tidak ada hasil.
+
+PENTING:
+- Jangan mengubah model ID.
+- Jangan melakukan normalisasi model baru.
+- Jangan mengubah provider mapping.
+- Search hanya melakukan filtering UI terhadap data yang sudah tersedia.
+- Jangan mengubah allowed-model backend validation.
+
+C. UX MOBILE
+
+Screenshot menunjukkan Admin UI digunakan dari mobile.
+
+Pastikan:
+- search input nyaman disentuh;
+- modal tidak terlalu tinggi;
+- search tetap terlihat saat daftar panjang;
+- gunakan scrolling pada list;
+- jangan membuat keyboard menutupi seluruh daftar;
+- tombol/checkbox tetap mudah ditekan;
+- jangan merusak responsive desktop.
+
+D. SEARCH + SELECTION
+
+Pastikan pencarian tidak merusak selection state.
+
+Contoh:
+1. User memilih beberapa model.
+2. User mengetik search.
+3. Model yang tidak cocok tersembunyi.
+4. Model yang sebelumnya sudah dipilih tetap selected.
+5. User menghapus search.
+6. Semua model muncul kembali dengan selection tetap.
+
+Jika ada "Select All" existing:
+- Select All harus mengikuti behavior yang masuk akal terhadap hasil filter;
+- jangan tanpa sengaja menghapus model yang sudah dipilih hanya karena search filter berubah.
+
+E. PERFORMANCE
+
+Jumlah model bisa >1000.
+
+Jangan melakukan network request baru setiap kali user mengetik.
+
+Search harus melakukan filtering terhadap data yang sudah dimuat.
+
+Jika perlu:
+- gunakan memoization/debouncing ringan sesuai pola frontend existing;
+- jangan menambah dependency hanya untuk fitur search sederhana.
+
+F. TEST
+
+Tambahkan/perbaiki test untuk:
+
+Provider search:
+- search by provider name
+- search by provider ID
+- case-insensitive
+- partial match
+- no result
+
+Model search:
+- search by model ID/name
+- case-insensitive
+- partial match
+- no result
+- provider dengan banyak model
+- selection tetap setelah filtering
+
+Regression:
+- create API key tetap bekerja;
+- allowed models tetap tersimpan benar;
+- provider tetap benar;
+- backend contract tidak berubah.
+
+Jalankan test SECARA SERIAL.
+
+Minimal:
+- test Client API Keys
+- test Admin UI yang relevan
+- npm run lint
+- npm run build
+
+G. OUTPUT
+
+Setelah selesai tampilkan:
+- file yang diubah;
+- lokasi/komponen search provider;
+- lokasi/komponen search models;
+- behavior selection setelah filtering;
+- hasil test;
+- lint;
+- build;
+- git diff --stat;
+- git status --short.
+
+JANGAN:
+- commit
+- push
+- deploy
+- restart production
+- mengubah backend routing
+- mengubah provider locking
+- mengubah model registry
+- mengubah model ID
+
+STOP setelah verification.
 
 
 ```
