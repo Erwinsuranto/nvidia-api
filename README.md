@@ -23,7 +23,100 @@
 # 
 ```
 
+COMMIT DAN PUSH PERUBAHAN YANG SUDAH DIVERIFIKASI.
 
+PENTING:
+- Ini VPS DEVELOPMENT/WORKSPACE.
+- Hanya commit perubahan yang terkait:
+  1. perbaikan pricing/cost pipeline;
+  2. perbaikan Client API Keys Delete + Copy Key;
+  3. search Provider;
+  4. search Models.
+- Jangan memasukkan perubahan lain yang tidak terkait.
+- Jangan commit secret, .env, API key, credential, atau file runtime sensitif.
+- Jangan mengubah source lagi kecuali diperlukan untuk membersihkan accidental/unrelated change.
+- Jangan reset, force push, atau menghapus commit history.
+
+LANGKAH:
+
+1. Jalankan:
+   git status --short
+
+2. Periksa:
+   git diff --stat
+   git diff
+
+3. Pastikan perubahan yang akan di-commit hanya perubahan yang sudah diverifikasi:
+   - pricing/cost
+   - Client API Keys
+   - Delete API Key
+   - Copy Key
+   - Provider search
+   - Model search
+   - test terkait fitur tersebut
+
+4. Jika ada file unrelated:
+   JANGAN ikut commit.
+   Jangan menghapus perubahan tersebut.
+   Biarkan tetap sebagai working-tree change.
+
+5. Pastikan tidak ada:
+   - .env
+   - API keys
+   - tokens
+   - credentials
+   - generated secrets
+   yang masuk commit.
+
+6. Jalankan verification terakhir secara SERIAL:
+   - test yang relevan dengan pricing/cost
+   - test client-api-keys
+   - test client-key-delete-auth
+   - test provider/model search
+   - npm run lint
+   - npm run build
+
+   Jika test suite sudah dijalankan persis setelah perubahan dan tidak ada perubahan source setelahnya, boleh gunakan hasil tersebut, tetapi tetap pastikan working tree/diff belum berubah secara tidak sengaja.
+
+7. Buat commit dengan pesan:
+
+   feat: improve pricing and client api key management
+
+8. Setelah commit berhasil:
+   git status --short
+   git log -1 --oneline
+
+9. Push branch aktif ke origin menggunakan push normal:
+   git push origin HEAD
+
+   JANGAN:
+   - git push --force
+   - git push --force-with-lease
+   - reset --hard
+   - pull yang berpotensi menimpa perubahan lokal
+
+10. Setelah push berhasil, verifikasi:
+   git status --short
+   git log -1 --oneline
+   git rev-parse HEAD
+   git ls-remote origin HEAD
+
+11. Pastikan commit lokal dan origin menunjuk commit yang sama.
+
+OUTPUT AKHIR:
+- commit hash
+- commit message
+- jumlah/file yang masuk commit
+- test result
+- lint result
+- build result
+- push result
+- local HEAD
+- origin HEAD
+- git status
+
+STOP setelah push berhasil.
+Jangan deploy atau restart production.
 
 ```
 # 
