@@ -11,7 +11,291 @@
 # 
 ```
 
+PERBAIKI API KEY MANAGEMENT PROVIDER DI VPS DEVELOPMENT.
 
+PENTING:
+- Ini VPS DEVELOPMENT/WORKSPACE, BUKAN PRODUCTION.
+- Jangan commit/push dulu.
+- Jangan deploy/restart production.
+- Audit implementasi existing terlebih dahulu.
+- Jangan mengubah provider routing, provider locking, model registry, Combo, pricing, retry, atau Client API Keys.
+- Fokus pada UI/UX dan bulk action API Key Management provider.
+- Jangan menampilkan atau mencetak raw API key ke log.
+
+TUJUAN:
+Membuat pengelolaan banyak API key lebih mudah dari halaman Provider Management.
+
+A. SELECT KEY
+
+Pada daftar Connections/API Keys setiap key harus mempunyai checkbox selection.
+
+Tambahkan:
+- checkbox pada setiap row/key;
+- "Select All" di bagian atas daftar.
+
+Behavior:
+- Select All memilih semua key yang tampil pada provider tersebut.
+- User tetap bisa memilih sebagian key.
+- Jika semua key dipilih, Select All menjadi checked.
+- Jika sebagian dipilih, gunakan indeterminate state jika UI existing mendukung.
+- Setelah action selesai, selection di-reset dengan aman.
+- Jangan mencampur key dari provider berbeda.
+
+B. BULK DISABLE SELECTED
+
+Tambahkan tombol:
+
+"Disable Selected"
+
+Behavior:
+- disabled jika tidak ada key yang dipilih;
+- ketika diklik, tampilkan confirmation;
+- setelah konfirmasi, disable SEMUA key yang dipilih;
+- gunakan endpoint/API existing jika sudah tersedia;
+- jangan membuat jalur backend baru jika bulk operation bisa dilakukan melalui endpoint existing dengan aman.
+
+Pastikan:
+- hanya key yang dipilih yang di-disable;
+- key lain tidak berubah;
+- status UI langsung diperbarui setelah sukses;
+- jika sebagian gagal, tampilkan hasil yang jelas dan jangan mengklaim semuanya berhasil.
+
+C. DELETE SELECTED
+
+Tambahkan tombol:
+
+"Delete Selected"
+
+Behavior:
+- disabled jika tidak ada key dipilih;
+- tombol harus memiliki visual destructive;
+- sebelum delete wajib confirmation;
+- tampilkan jumlah key yang akan dihapus.
+
+Contoh:
+"Delete 3 selected keys?"
+
+Setelah konfirmasi:
+- hapus hanya key yang dipilih;
+- refresh/update list setelah sukses;
+- key yang tidak dipilih tetap ada;
+- jangan menghapus provider;
+- jangan menghapus model;
+- jangan menghapus Client API Keys.
+
+Security:
+- jangan tampilkan raw API key;
+- gunakan identifier internal/masked key yang memang digunakan sistem;
+- jangan memasukkan secret ke log/error.
+
+D. ENABLE ALL KEYS
+
+Tambahkan tombol:
+
+"Enable All Keys"
+
+Behavior:
+- enable semua API key milik provider yang sedang dibuka;
+- tidak memengaruhi provider lain;
+- tidak memengaruhi Client API Keys;
+- confirmation tidak wajib jika action existing bersifat aman, tetapi gunakan confirmation jika pola UI existing memang memerlukannya;
+- setelah berhasil, semua status menjadi ACTIVE/ENABLED.
+
+Jika semua sudah enabled:
+- tombol boleh tetap tersedia tetapi action harus aman/idempotent;
+- jangan membuat perubahan yang tidak perlu.
+
+E. TOOLBAR
+
+Buat toolbar compact agar tidak memenuhi layar.
+
+Contoh:
+
+[☐ Select All] [Enable All] [Disable Selected] [Delete Selected]
+
+Tampilkan counter:
+
+"3 selected"
+
+Jika tidak ada selection:
+- Disable Selected → disabled
+- Delete Selected → disabled
+
+Jangan membuat toolbar terlalu besar pada mobile.
+
+F. RESPONSIVE MOBILE
+
+Screenshot menunjukkan UI digunakan pada desktop dan kemungkinan mobile.
+
+Pastikan:
+- checkbox mudah disentuh;
+- toolbar bisa wrap;
+- tombol tidak bertabrakan;
+- action destructive tetap jelas;
+- row key tetap terbaca;
+- jangan membuat horizontal overflow yang tidak perlu.
+
+G. AUTO NUMBERING NAMA API KEY
+
+Perbaiki form "Add API Key".
+
+Saat user menambahkan key baru, nama default harus otomatis berurutan.
+
+Contoh:
+
+Jika existing:
+Production Key 1
+Production Key 2
+
+maka form berikutnya otomatis:
+Production Key 3
+
+Jika existing:
+Production Key 1
+Production Key 3
+
+maka berikutnya:
+Production Key 4
+
+Jangan menggunakan:
+jumlah key + 1
+
+Gunakan:
+nomor tertinggi yang sudah pernah digunakan + 1
+berdasarkan nama key yang mengikuti pola numbering existing.
+
+Jika key:
+Production Key 10
+
+maka key berikutnya:
+Production Key 11
+
+Jika tidak ada numbered key:
+gunakan default existing "Production Key 1" atau pola naming yang memang sudah dipakai project.
+
+PENTING:
+- Jangan mengubah nama key yang sudah ada.
+- Jangan renumber key lama.
+- Jangan membuat duplicate name karena race condition.
+- Jika backend sudah memiliki naming convention berbeda, ikuti convention existing tetapi tambahkan sequential numbering.
+- Audit bagaimana key name disimpan sebelum implementasi.
+
+Jika ada Bulk Add:
+- jangan merusak naming sequence;
+- generate nama secara berurutan;
+- contoh 3 key baru:
+  Production Key 3
+  Production Key 4
+  Production Key 5
+
+H. CONCURRENCY / DUPLICATE
+
+Pastikan dua request penambahan key tidak mudah menghasilkan nama yang sama.
+
+Jika naming hanya UI suggestion:
+- jelaskan bahwa backend tetap source of truth.
+
+Jika backend existing sudah memiliki mekanisme unique name:
+- gunakan mekanisme tersebut.
+
+Jangan membuat database migration kecuali benar-benar diperlukan.
+
+I. TEST
+
+Tambahkan/perbaiki test secara SERIAL untuk:
+
+Selection:
+1. select single key
+2. select multiple keys
+3. select all
+4. deselect
+5. indeterminate state jika ada
+
+Disable:
+6. Disable Selected hanya mengubah selected keys
+7. key yang tidak dipilih tetap aktif
+8. zero selection disabled
+9. partial failure ditangani dengan benar
+
+Delete:
+10. Delete Selected hanya menghapus selected keys
+11. confirmation
+12. zero selection disabled
+13. key lain tetap ada
+14. provider tidak ikut terhapus
+15. secret tidak masuk log
+
+Enable:
+16. Enable All mengaktifkan semua key provider
+17. provider lain tidak berubah
+18. idempotent ketika semua sudah enabled
+
+Auto naming:
+19. kosong → Production Key 1
+20. ada 1 → Production Key 2
+21. ada 2 → Production Key 3
+22. gap numbering → highest + 1
+23. Production Key 10 → Production Key 11
+24. deleted key number tidak dipakai ulang
+25. Bulk Add menghasilkan sequence benar
+26. existing names tidak berubah
+
+Regression:
+27. test add API key existing
+28. test edit API key existing
+29. test single enable/disable existing
+30. test single delete existing
+31. provider routing tetap normal
+32. API key tetap terikat provider yang benar
+
+Jalankan test SERIAL, jangan paralel.
+
+Kemudian:
+- npm run lint
+- npm run build
+
+J. RUNTIME DEVELOPMENT VERIFICATION
+
+Jika memungkinkan lakukan test nyata di DEVELOPMENT:
+
+1. Buat beberapa test API key/provider yang aman.
+2. Pastikan checkbox muncul.
+3. Pilih 2 key.
+4. Disable Selected.
+5. Pastikan hanya 2 key tersebut disabled.
+6. Pilih beberapa key.
+7. Delete Selected dengan confirmation.
+8. Pastikan hanya selected keys hilang.
+9. Klik Enable All Keys.
+10. Pastikan seluruh key provider kembali enabled.
+11. Buka Add API Key.
+12. Pastikan nama berikutnya otomatis mengikuti nomor tertinggi + 1.
+
+JANGAN menggunakan production API key untuk test.
+JANGAN mencetak raw API key.
+
+K. OUTPUT
+
+Setelah selesai tampilkan:
+- root cause/arsitektur existing;
+- file yang diubah;
+- endpoint yang digunakan untuk bulk action;
+- behavior Select All;
+- behavior Disable Selected;
+- behavior Delete Selected;
+- behavior Enable All;
+- mekanisme auto-numbering;
+- hasil runtime verification;
+- hasil semua test;
+- lint;
+- build;
+- git diff --stat;
+- git status --short.
+
+STOP setelah verification.
+Jangan commit.
+Jangan push.
+Jangan deploy production.
 
 ```
 # 
