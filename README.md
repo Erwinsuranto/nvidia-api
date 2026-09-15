@@ -16,7 +16,159 @@
 ```
 # 
 ```
+PERBAIKI UX ADMIN — PROVIDER MANAGEMENT.
 
+PENTING:
+- Kerjakan di VPS DEVELOPMENT/WORKSPACE saja.
+- Jangan commit/push dulu.
+- Jangan deploy atau restart production.
+- Fokus UI/refresh behavior saja.
+- Jangan mengubah provider routing, model registry, API key logic, Combo, pricing, retry, atau backend contract.
+- Audit komponen existing terlebih dahulu.
+
+MASALAH DARI UI SAAT INI:
+1. Card/menu Provider Management terlalu besar sehingga terlalu sedikit provider terlihat di layar.
+2. Ada refresh/polling otomatis yang tidak diperlukan.
+3. User ingin refresh dilakukan MANUAL melalui tombol Refresh saja.
+
+A. COMPACT PROVIDER UI
+
+Buat Provider Management lebih compact dan efisien.
+
+Tujuan:
+- lebih banyak provider terlihat dalam satu layar;
+- tetap mudah dibaca;
+- tetap responsive desktop/mobile.
+
+Pertahankan informasi penting:
+- provider name
+- provider ID
+- enabled/disabled
+- jumlah models
+- jumlah API keys
+- jumlah requests
+- Manage API Keys
+- Enable/Disable
+- model count/routable status jika memang sudah ada.
+
+Perubahan UX:
+- kurangi padding card yang terlalu besar;
+- kurangi whitespace vertikal;
+- gunakan typography yang lebih compact tetapi tetap terbaca;
+- action button jangan terlalu tinggi;
+- jangan membuat card menjadi terlalu kecil sampai sulit disentuh di mobile.
+
+DESKTOP:
+- manfaatkan ruang horizontal dengan baik;
+- provider cards boleh lebih compact sehingga lebih banyak card terlihat.
+
+MOBILE:
+- tetap responsive;
+- jangan membuat teks/button bertabrakan;
+- tombol tetap mudah disentuh;
+- jangan menghilangkan informasi penting.
+
+Jangan mengubah data/provider logic, hanya presentation/layout.
+
+B. REFRESH MANUAL SAJA
+
+Hapus AUTO REFRESH/POLLING dari halaman Provider Management.
+
+Ketentuan:
+- jangan ada setInterval untuk refresh provider;
+- jangan ada polling berkala;
+- jangan melakukan background refresh otomatis;
+- jangan refresh ketika user sedang membuka/memilih provider;
+- jangan refresh karena search input berubah.
+
+Pertahankan tombol:
+    Refresh
+
+Behavior:
+- user menekan Refresh → fetch data terbaru;
+- tampilkan loading state singkat pada tombol;
+- cegah double-click request selama refresh sedang berjalan;
+- setelah selesai, tombol kembali normal;
+- jika request gagal, tampilkan error yang jelas;
+- data lama tetap ditampilkan jika refresh gagal.
+
+C. LAST REFRESH
+
+Jika UI saat ini memiliki:
+    Last refresh: ...
+
+Pertahankan informasi tersebut, tetapi hanya update ketika:
+- halaman pertama kali berhasil memuat data;
+- user menekan tombol Refresh dan request berhasil.
+
+Jangan mengubah timestamp setiap beberapa detik.
+
+D. SEARCH
+
+Search provider tetap realtime/lokal seperti implementasi sebelumnya.
+
+Search TIDAK boleh:
+- memanggil endpoint setiap karakter;
+- memicu refresh;
+- memicu polling.
+
+Search hanya melakukan filtering terhadap provider data yang sudah dimuat.
+
+E. TEST
+
+Tambahkan/perbaiki test untuk:
+
+1. Provider cards render dengan layout compact.
+2. Provider information tetap lengkap.
+3. Search provider tetap bekerja.
+4. Search tidak menyebabkan network refresh.
+5. Tidak ada automatic polling pada Provider Management.
+6. Tombol Refresh melakukan request ketika diklik.
+7. Double-click refresh tidak membuat duplicate request.
+8. Loading state refresh.
+9. Failed refresh mempertahankan data lama.
+10. Last refresh hanya berubah setelah successful refresh.
+
+Jika project mempunyai test khusus Admin UI/Provider Management, gunakan test tersebut.
+
+Jalankan test SECARA SERIAL.
+
+Kemudian:
+- npm run lint
+- npm run build
+
+F. VALIDASI
+
+Jika memungkinkan lakukan visual/runtime verification di DEVELOPMENT:
+- buka Provider Management;
+- pastikan card lebih compact;
+- pastikan beberapa provider dapat terlihat sekaligus;
+- diamkan halaman beberapa saat;
+- pastikan TIDAK ada request refresh otomatis;
+- tekan Refresh;
+- pastikan hanya saat tombol ditekan data diperbarui;
+- gunakan Search;
+- pastikan Search tidak memicu network request.
+
+Jangan menggunakan production.
+
+G. OUTPUT
+
+Tampilkan:
+- file yang diubah;
+- perubahan layout;
+- perubahan refresh behavior;
+- konfirmasi auto-refresh/polling sudah dihapus;
+- hasil test;
+- lint;
+- build;
+- git diff --stat;
+- git status --short.
+
+STOP.
+Jangan commit.
+Jangan push.
+Jangan deploy.
 
 
 ```
