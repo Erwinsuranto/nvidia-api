@@ -41,7 +41,139 @@
 # 
 ```
 
+LAKUKAN VERIFIKASI FINAL COST PIPELINE DI VPS DEVELOPMENT INI.
 
+PENTING:
+- Ini DEVELOPMENT/WORKSPACE, BUKAN PRODUCTION.
+- Jangan deploy atau restart production.
+- Jangan commit/push.
+- Jangan mengubah source code kecuali ditemukan bug nyata yang menghalangi verification; jika ada bug, STOP dan laporkan dulu.
+- Jangan mengubah routing, provider, retry, OpenCode Inference, Kie.ai, Muse, Combo, atau KeyManager.
+
+TUJUAN UTAMA:
+Buktikan bahwa setelah fix pricing/cost terakhir, usage baru dengan pricing valid benar-benar membuat "Est. Cost (Total)" bertambah secara live.
+
+LANGKAH:
+
+1. Periksa kondisi git:
+   git status --short
+
+2. Jalankan test yang sudah dibuat:
+   npm test -- --runInBand tests/cost-pipeline.test.ts
+
+   Jika command test project berbeda, gunakan command test yang memang dipakai project.
+   Jalankan SERIAL, jangan paralel.
+
+3. Lakukan verifikasi langsung terhadap pricing:
+   - baca model-pricing.json / storage pricing yang digunakan aplikasi;
+   - tampilkan beberapa entry pricing yang VALID;
+   - pastikan ada minimal satu pasangan provider+model yang mempunyai harga input/output valid;
+   - pastikan entry tersebut benar-benar dipakai oleh runtime lookup.
+
+4. Verifikasi perhitungan dengan angka deterministik.
+   Gunakan contoh kecil yang mudah diverifikasi, misalnya:
+   - 1.000.000 input token
+   - 1.000.000 output token
+   sesuai harga entry yang sedang tersedia.
+
+   Hitung expected cost secara manual lalu bandingkan dengan hasil fungsi aplikasi.
+
+5. Verifikasi aggregate:
+   - ambil aggregate cost sebelum record usage baru;
+   - masukkan SATU usage record test dengan token yang diketahui dan pricing valid;
+   - hitung expected delta;
+   - ambil aggregate cost sesudahnya;
+   - pastikan:
+       actual_after - actual_before === expected_delta
+     dengan toleransi precision yang memang digunakan aplikasi.
+
+6. Verifikasi bahwa aggregate tidak frozen:
+   Masukkan minimal 2 record berbeda secara serial.
+   Pastikan:
+       cost_after_2 > cost_after_1 > cost_before
+   jika keduanya mempunyai pricing valid dan token > 0.
+
+7. Verifikasi UNKNOWN/UNPRICED:
+   - masukkan usage dengan model/provider yang tidak mempunyai pricing;
+   - pastikan aplikasi TIDAK mengarang harga;
+   - pastikan hasilnya tetap UNKNOWN/null sesuai desain;
+   - pastikan usage tersebut tidak diam-diam dihitung sebagai paid cost $0.
+
+8. Verifikasi FREE:
+   Jika tersedia model/provider yang memang dikonfigurasi resmi sebagai free:
+   - pastikan pricing $0 diperlakukan sebagai valid FREE;
+   - bedakan FREE ($0) dengan UNKNOWN/UNPRICED.
+
+9. Verifikasi persistence:
+   - ubah/test pricing entry melalui mekanisme Pricing yang sudah ada;
+   - pastikan tersimpan ke storage pricing yang benar;
+   - baca kembali;
+   - pastikan nilai sama;
+   - jangan restart aplikasi;
+   - pastikan request/perhitungan berikutnya langsung menggunakan nilai tersebut.
+
+10. Jika aplikasi sedang berjalan dan ada endpoint Admin yang aman digunakan di DEVELOPMENT:
+   - gunakan endpoint/flow yang sudah ada untuk melihat Admin Overview;
+   - verifikasi Est. Cost (Total) membaca aggregate terbaru.
+   Jangan melakukan perubahan pada production.
+
+11. JANGAN menggunakan data production.
+    Jangan mengambil atau mengubah usage production.
+    Jangan mengklaim "live" jika yang diverifikasi hanya unit test.
+    Bedakan:
+    - unit/integration verification
+    - runtime development verification
+    - production verification
+
+12. Setelah verification selesai, tampilkan laporan ringkas:
+
+    PRICING LOOKUP:
+    PASS/FAIL
+
+    COST CALCULATION:
+    expected = ...
+    actual   = ...
+    PASS/FAIL
+
+    AGGREGATE BEFORE:
+    ...
+
+    AFTER RECORD #1:
+    ...
+    delta = ...
+    PASS/FAIL
+
+    AFTER RECORD #2:
+    ...
+    delta = ...
+    PASS/FAIL
+
+    UNKNOWN PRICING:
+    PASS/FAIL
+
+    FREE PRICING:
+    PASS/FAIL jika tersedia
+
+    PERSISTENCE WITHOUT RESTART:
+    PASS/FAIL
+
+    ADMIN OVERVIEW COST:
+    PASS/FAIL jika dapat diverifikasi
+
+    TEST:
+    ...
+
+    LINT:
+    ...
+
+    BUILD:
+    ...
+
+    GIT STATUS:
+    ...
+
+STOP setelah laporan.
+Jangan commit dan jangan push.
 
 ```
 # 
