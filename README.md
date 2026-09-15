@@ -47,7 +47,141 @@
 # 
 ```
 
+LANJUTKAN dari audit terakhir. KERJAKAN PERBAIKAN COST/PRICING SEKARANG.
 
+PENTING:
+- Ini VPS DEVELOPMENT/WORKSPACE, BUKAN VPS PRODUCTION.
+- Jangan deploy, restart service production, atau mengubah VPS production.
+- Jangan mengubah routing/provider/retry logic yang tidak terkait pricing.
+- Jangan mengubah OpenCode Inference, Kie.ai retry, Muse, atau provider locking.
+- Jangan commit/push dulu.
+- Kerjakan perubahan source + test di workspace ini saja.
+
+HASIL AUDIT TERAKHIR:
+- pricing/cost pipeline sudah ditelusuri.
+- usage baru sebenarnya bisa bergerak.
+- masalah utama: pasangan model/provider yang berbayar belum memiliki harga resmi yang tersedia di repository/config.
+- unknown pricing memang dibuat null by design.
+- akibatnya aggregate cost tidak bertambah untuk usage yang model pricing-nya belum tersedia.
+- Audit juga menyebut solusi: pricing harus dapat diaktifkan/dikelola melalui tab Pricing di Admin dan tersimpan ke model-pricing.json tanpa restart.
+
+TUGAS:
+1. Audit implementasi Pricing yang SEKARANG sudah ada.
+   Telusuri:
+   - model pricing source
+   - model-pricing.json
+   - pricing service/helper
+   - usage-store
+   - cost calculation
+   - aggregate usage
+   - endpoint Admin Pricing
+   - UI Admin Pricing
+   Jangan membuat sistem pricing baru jika sebenarnya sudah ada; perbaiki pipeline yang ada.
+
+2. Pastikan Admin Pricing dapat membuat/mengaktifkan pricing entry untuk model/provider yang memang digunakan.
+   Entry harus memiliki setidaknya:
+   - provider
+   - model
+   - input price
+   - output price
+   - cache/read price jika arsitektur saat ini mendukungnya
+   - enabled
+   - unit/scale yang jelas
+
+3. HARGA JANGAN DIKARANGI.
+   - Jangan mengisi harga model berbayar dengan angka tebakan.
+   - Jangan menganggap provider berbayar sebagai free.
+   - Untuk model/provider yang memang free tier secara resmi, harga $0 boleh digunakan hanya jika memang sudah diketahui dari konfigurasi/kontrak yang ada.
+   - Jika harga resmi belum diketahui, biarkan unknown/null dan jangan menghasilkan cost palsu.
+   - Pastikan UI membedakan FREE ($0) dengan UNKNOWN/UNPRICED.
+
+4. Pastikan ketika pricing entry di Admin diubah:
+   - tersimpan persisten ke model-pricing.json/config pricing yang memang digunakan aplikasi;
+   - perubahan langsung dipakai oleh request berikutnya;
+   - TIDAK membutuhkan restart;
+   - tidak mereset entry pricing lain;
+   - tidak membuat duplicate entry untuk provider+model yang sama.
+
+5. PERBAIKI COST CALCULATION.
+   Pastikan:
+   - input tokens × input price
+   - output tokens × output price
+   - cached/read tokens menggunakan aturan pricing yang benar jika tersedia
+   - scale 1M/1K ditangani benar
+   - angka token besar seperti 3,27 MILIAR tidak overflow/rounding salah;
+   - precision cukup tinggi;
+   - setiap usage record baru benar-benar menambah aggregate cost;
+   - aggregate tidak di-reset ketika record baru masuk.
+
+6. PERBAIKI LOOKUP.
+   Provider/model identifier harus dicocokkan secara konsisten.
+   Periksa kemungkinan:
+   - provider prefix
+   - model ID
+   - alias model
+   - case normalization
+   - model name dengan/ tanpa provider prefix
+   Jangan sampai pricing ada tetapi lookup gagal karena format identifier berbeda.
+
+7. Pastikan Admin Overview:
+   - Total Requests tetap benar
+   - token tetap benar
+   - Est. Cost (Total) ikut bertambah ketika usage baru memiliki pricing valid
+   - cost tidak lagi terlihat frozen hanya karena aggregate/cache salah
+   - unknown/unpriced usage tidak dihitung sebagai $0 jika semestinya unknown
+   - jangan mengubah historical usage secara sembarangan.
+
+8. TEST WAJIB.
+   Tambahkan/perbaiki test untuk:
+   A. pricing valid input token
+   B. pricing valid output token
+   C. cached token jika didukung
+   D. usage baru menambah aggregate cost
+   E. multiple usage records terakumulasi
+   F. unknown pricing
+   G. free model pricing $0
+   H. provider/model lookup
+   I. provider prefix/alias
+   J. token sangat besar (miliaran)
+   K. pricing update tanpa restart
+   L. duplicate pricing entry tidak terjadi
+   M. Admin Pricing save/load persistence
+   N. Admin Overview membaca aggregate cost terbaru
+   O. regression test cost pipeline lama
+
+9. Jalankan test SECARA SERIAL, jangan paralel.
+   Minimal:
+   - test pricing/cost yang relevan
+   - test usage
+   - test admin dashboard/route yang relevan
+   - test provider-routes jika terdampak
+   - npm run lint
+   - npm run build
+
+10. Setelah semua selesai:
+   Tampilkan:
+   - root cause yang sebenarnya
+   - file yang diubah
+   - mekanisme pricing yang sekarang digunakan
+   - bagaimana Admin Pricing menyimpan perubahan
+   - contoh perhitungan cost dengan angka kecil
+   - hasil semua test
+   - hasil lint
+   - hasil build
+   - git diff --stat
+   - git status --short
+
+JANGAN:
+- commit
+- push
+- deploy
+- restart production
+- mengubah provider routing
+- mengubah retry
+- mengubah API contract yang tidak diperlukan
+- mengisi harga berbayar dengan tebakan.
+
+STOP setelah verifikasi lokal selesai.
 
 ```
 # 
